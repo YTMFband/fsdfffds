@@ -1,0 +1,1144 @@
+-->> ('Shared') <<--
+getgenv()["Snipe"] = {
+
+    Character = {
+
+        Has__FHO = false,
+        Has__PHO = false,
+        Has__FHN = false,
+
+
+        RunAnimation = nil;
+        IdleAnimation = nil;
+        JumpAnimation = nil;
+        FallAnimation = nil;
+
+
+        MacroEnabled = false;
+        GunToMacro = nil;
+
+
+        LoadoutEnabled = false,
+        LoadoutGunList = {},
+
+    },
+
+    SilentAim = {
+
+        SilentAimEnabled = false;
+        SelectionAim = nil;
+
+        WallCheck = false;
+        GrabbedCheck = false;
+        DownCheck = false;
+
+        FovEnabled = false;
+        SilentFov = 200;
+        FovColor = nil;
+
+        SilentAimMode = 'FreeForAll',
+        SilentAimSelection = 'Mouse',
+
+        Visual = {
+            TraceEnabled = false;
+            TraceColor = nil;
+        },
+    },
+
+    RangeManipulation = {
+
+        RevolverEnabled = false;
+        TacticalShotgunEnabled = false;
+        DoubleBarrelSGEnabled = false;
+
+        Revolver = 250;
+        TacticalShotgun = 75;
+        DoubleBarrelSG = 95;
+
+    },
+}
+
+-->> ('Local') <<--
+
+local RunService_ = game:GetService("RunService");
+local Users_ = game:GetService("Players");
+local InsertService__ = game:GetService("InsertService");
+local Camera__ = workspace.CurrentCamera;
+local UserInputService__ = game:GetService("UserInputService");
+
+local L_Player = Users_.LocalPlayer;
+local L_Mouse = L_Player:GetMouse();
+
+local loadout__Query = false;
+
+local TraceSilentAim = Drawing.new("Line")
+TraceSilentAim.Visible = true
+TraceSilentAim.Color = Color3.fromRGB(255,255,255)
+TraceSilentAim.Thickness = 2
+TraceSilentAim.Transparency = 1
+
+local FovSilentAim = Drawing.new("Circle")
+FovSilentAim.Color = Color3.fromRGB(255,255,255)
+FovSilentAim.Thickness = 2
+FovSilentAim.Transparency = 1
+FovSilentAim.Radius = 200
+FovSilentAim.NumSide = 100
+
+-->> ('Table') <<--
+
+local signal = {};
+local connections = {};
+local WhitelistPlayers = {};
+local Is__player__visible = {};
+local is__Player__down = {};
+local Players = {};
+
+-->> ('Is__Support__High') <<--
+
+local Creat__Con = function(signal, callback)
+    local connection = signal:Connect(callback)
+    connections[#connections + 1] = connection
+    return connection
+end
+
+-->> ('Signal') <<--
+do
+    local connection = {}
+
+    connection["__index"] = connection
+
+    function connection.new(signal, callback)
+        local callbacks = signal["callbacks"]
+        callbacks[#callbacks+1] = callback
+
+        return setmetatable({
+            callback = callback,
+            signal = signal
+        }, connection)
+    end
+
+    function connection:Disconnect()
+        local callbacks = self["signal"]["callbacks"]
+        local callback = self["callback"]
+
+        for i = 1, #callbacks do
+            if callbacks[i] == callback then
+                remove(callbacks, i)
+                break
+            end
+        end
+    end
+
+    signal["__index"] = signal
+
+    signal.new = function()
+        return setmetatable({
+            callbacks = {}
+        }, signal)
+    end
+    function signal:Fire(...)
+        local callbacks = self["callbacks"]
+        for i = 1, #callbacks do
+            task.spawn(callbacks[i], ...)
+        end
+    end
+
+    function signal:Connect(callback)
+        return connection["new"](self, callback)
+    end
+end
+
+
+local Signals = {
+
+    ['On__Character__Added'] = signal["new"](),
+    ['LarpItemVl3'] = signal["new"]();
+    ['OnAnimationChange'] = signal["new"]();
+    ['OnLoadOutListUpdate'] = signal["new"]();
+    ['OnChildAdded']= signal["new"]();
+    ['OnChildRemoved']= signal["new"]();
+    ['on__Change__Range']= signal["new"]();
+}
+
+do
+    setthreadidentity(2)
+    local hooked = {}
+    local detected, kill
+    for _, v in getgc(true) do
+        if typeof(v) == "table" then
+            local detectFn = rawget(v, "Detected")
+            local killFn = rawget(v, "Kill")
+            if typeof(detectFn) == "function" and not detected then
+                detected = detectFn
+                local old
+                old = hookfunction(detected, function(action, info, noCrash)
+                    return true
+                end)
+                table.insert(hooked, detected)
+            end
+
+            if rawget(v, "Variables") and rawget(v, "Process") and typeof(killFn) == "function" and not kill then
+                kill = killFn
+                local old
+                old = hookfunction(kill, function(info) end)
+                table.insert(hooked, kill)
+            end
+
+        end
+    end
+
+    local oldInfo
+    oldInfo = hookfunction(getrenv().debug.info, newcclosure(function(...)
+        local levelOrFunc = ...
+        if detected and levelOrFunc == detected then
+            return coroutine.yield(coroutine.running())
+        end
+        return oldInfo(...)
+    end))
+
+    setthreadidentity(7)
+end
+
+do
+
+    local Connection1
+    local Connection2
+
+    local Char__Added_F = function()
+        local L__Character = L_Player['Character']
+
+
+        if Connection1 ~= nil then
+            Connection1:Disconnect()
+        end
+
+        if Connection2 ~= nil then
+            Connection2:Disconnect()
+        end
+
+
+        Connection2 = L__Character.ChildRemoved:Connect(function(child)
+            if getgenv()["Snipe"].Character.LoadoutEnabled == true and loadout__Query == false then
+                local Hum = L__Character.Humanoid
+                Hum:UnequipTools()
+
+                task.wait(0.25)
+
+                for index, v in next, getgenv()["Snipe"].Character.LoadoutGunList do
+                    if L_Player.Backpack[index] then
+                        L_Player.Backpack[index].Parent = L__Character
+                    end
+                end
+
+                return
+            end
+        end)
+
+        Signals['On__Character__Added']:Fire()
+    end
+
+    Creat__Con(L_Player['CharacterAdded'], Char__Added_F)
+    Char__Added_F()
+end
+
+
+do
+    
+    local RunList = {
+        ['Zombie'] = 'http://www.roblox.com/asset/?id=616163682';
+        ['Mage'] = 'http://www.roblox.com/asset/?id=10921148209';
+        ['Superhero'] = 'http://www.roblox.com/asset/?id=10921291831';
+        ['Robot'] = 'http://www.roblox.com/asset/?id=10921250460';
+        ['Elder'] = 'http://www.roblox.com/asset/?id=10921104374';
+        ['Toy'] = 'http://www.roblox.com/asset/?id=10921306285';
+        ['Cartoony'] = 'http://www.roblox.com/asset/?id=10921076136';
+        ['Ninja'] ='http://www.roblox.com/asset/?id=10921157929';
+        ['Levitation'] ='http://www.roblox.com/asset/?id=10921135644';
+        ['Knight'] ='http://www.roblox.com/asset/?id=10921121197';
+        ['Astronaut'] ='http://www.roblox.com/asset/?id=10921039308';
+        ['Pirate'] ='http://www.roblox.com/asset/?id=750783738';
+        ['Vampire'] ='http://www.roblox.com/asset/?id=10921320299';
+        ['Wicked'] = 'rbxassetid://135515454877967';
+        ['FIFA '] = 'rbxassetid://101650118148392';
+        ['Stylish'] ='http://www.roblox.com/asset/?id=10921276116';
+    }
+
+    local IdleList = {
+
+        ['Zombie'] = {
+            Animation1 = 'http://www.roblox.com/asset/?id=10921344533';
+            Animation2 = 'http://www.roblox.com/asset/?id=10921345304';
+        };
+
+        ['Mage'] = {
+            Animation1 = 'http://www.roblox.com/asset/?id=10921144709';
+            Animation2 = 'http://www.roblox.com/asset/?id=10921145797';
+        };
+
+        ['Elder'] = {
+            Animation1 = 'http://www.roblox.com/asset/?id=10921101664';
+            Animation2 = 'http://www.roblox.com/asset/?id=10921102574';
+        };
+
+        ['Toy'] = {
+            Animation1 = 'http://www.roblox.com/asset/?id=10921301576';
+            Animation2 = 'http://www.roblox.com/asset/?id=10921302207';
+        };
+
+        ['Cartoony'] = {
+            Animation1 = 'http://www.roblox.com/asset/?id=10921071918';
+            Animation2 = 'http://www.roblox.com/asset/?id=10921072875';
+        };
+
+        ['Ninja'] = {
+            Animation1 = 'http://www.roblox.com/asset/?id=10921155160';
+            Animation2 = 'http://www.roblox.com/asset/?id=10921155867';
+        };
+
+        ['Levitation'] = {
+            Animation1 = 'http://www.roblox.com/asset/?id=10921132962';
+            Animation2 = 'http://www.roblox.com/asset/?id=10921133721';
+        };
+
+        ['Knight'] = {
+            Animation1 = 'http://www.roblox.com/asset/?id=10921117521';
+            Animation2 = 'http://www.roblox.com/asset/?id=10921118894';
+        };
+
+        ['Astronaut'] = {
+            Animation1 = 'http://www.roblox.com/asset/?id=10921034824';
+            Animation2 = 'http://www.roblox.com/asset/?id=10921036806';
+        };
+
+        ['Pirate'] = {
+            Animation1 = 'http://www.roblox.com/asset/?id=750781874';
+            Animation2 = 'http://www.roblox.com/asset/?id=750782770';
+        };
+
+        ['Vampire'] = {
+            Animation1 = 'http://www.roblox.com/asset/?id=10921315373';
+            Animation2 = 'http://www.roblox.com/asset/?id=10921316709';
+        };
+
+        ['Robot'] = {
+            Animation1 = 'http://www.roblox.com/asset/?id=10921248039';
+            Animation2 = 'http://www.roblox.com/asset/?id=10921248831';
+        };
+
+        ['Wicked'] = {
+            Animation1 = 'rbxassetid://92849173543269';
+            Animation2 = 'rbxassetid://132238900951109';
+        };
+
+        ['Superhero'] = {
+            Animation1 = 'http://www.roblox.com/asset/?id=10921288909';
+            Animation2 = 'http://www.roblox.com/asset/?id=10921290167';
+        };
+
+        ['Oldschool'] = {
+            Animation1 = 'http://www.roblox.com/asset/?id=10921230744';
+            Animation2 = 'http://www.roblox.com/asset/?id=10921232093';
+        };
+
+    };
+
+    local JumpList = {
+        ['Mage'] = 'http://www.roblox.com/asset/?id=10921149743';
+        ['Toy'] = 'http://www.roblox.com/asset/?id=10921308158';
+        ['Superhero'] = 'http://www.roblox.com/asset/?id=10921294559';
+        ['Elder'] = 'http://www.roblox.com/asset/?id=10921107367';
+        ['Werewolf'] ='http://www.roblox.com/asset/?id=1083218792';
+        ['Ninja'] ='http://www.roblox.com/asset/?id=10921160088';
+        ['Zombie'] ='http://www.roblox.com/asset/?id=10921351278';
+        ['Levitation'] = 'http://www.roblox.com/asset/?id=10921137402';
+        ['Knight'] ='http://www.roblox.com/asset/?id=10921123517';
+        ['Cartoony'] ='http://www.roblox.com/asset/?id=10921078135';
+        ['Robot'] ='http://www.roblox.com/asset/?id=10921252123';
+        ['Stylish'] ='http://www.roblox.com/asset/?id=10921279832';
+        ['Vampire'] ='http://www.roblox.com/asset/?id=10921322186';
+        ['Astronaut'] ='http://www.roblox.com/asset/?id=10921042494';
+        ['Oldschool'] = 'http://www.roblox.com/asset/?id=10921242013';
+    };
+
+    local FallList = {
+        ['Robot'] = 'http://www.roblox.com/asset/?id=10921251156';
+        ['Stylish'] ='http://www.roblox.com/asset/?id=10921278648';
+        ['Vampire'] = 'http://www.roblox.com/asset/?id=10921321317';
+        ['Astronaut'] = 'http://www.roblox.com/asset/?id=10921040576';
+        ['Mage'] ='http://www.roblox.com/asset/?id=10921148939';
+        ['Toy'] = 'http://www.roblox.com/asset/?id=10921307241';
+        ['Superhero'] ='http://www.roblox.com/asset/?id=10921293373';
+        ['Elder'] = 'http://www.roblox.com/asset/?id=10921105765';
+        ['Werewolf'] = 'http://www.roblox.com/asset/?id=10921337907';
+        ['Ninja'] = 'http://www.roblox.com/asset/?id=10921159222';
+        ['Zombie'] = 'http://www.roblox.com/asset/?id=10921350320';
+        ['Levitation'] = 'http://www.roblox.com/asset/?id=10921136539';
+        ['Knight'] = 'http://www.roblox.com/asset/?id=10921122579';
+        ['Cartoony'] = 'http://www.roblox.com/asset/?id=10921077030';
+        ['Oldschool'] = 'http://www.roblox.com/asset/?id=10921241244';
+    };
+    
+    local WalkList = {
+        ['Robot'] = 'http://www.roblox.com/asset/?id=10921255446';
+        ['Stylish'] ='http://www.roblox.com/asset/?id=10921283326';
+        ['Vampire'] = 'http://www.roblox.com/asset/?id=10921326949';
+        ['Astronaut'] = 'http://www.roblox.com/asset/?id=10921046031';
+        ['Mage'] ='http://www.roblox.com/asset/?id=10921152678';
+        ['Toy'] = 'http://www.roblox.com/asset/?id=10921312010';
+        ['Superhero'] ='http://www.roblox.com/asset/?id=10921298616';
+        ['Elder'] = 'http://www.roblox.com/asset/?id=10921111375';
+        ['Werewolf'] = 'http://www.roblox.com/asset/?id=10921342074';
+        ['Ninja'] = 'http://www.roblox.com/asset/?id=10921162768';
+        ['Zombie'] = 'http://www.roblox.com/asset/?id=10921355261';
+        ['Levitation'] = 'http://www.roblox.com/asset/?id=10921140719';
+        ['Knight'] = 'http://www.roblox.com/asset/?id=10921127095';
+        ['Cartoony'] = 'http://www.roblox.com/asset/?id=10921082452';
+        ['Oldschool'] = 'http://www.roblox.com/asset/?id=10921244891';
+    };
+
+    local on__Character__Added = function()
+        local L_Character = L_Player.Character
+        L_Character:WaitForChild('Animate')
+        task.wait(0.5)
+        if getgenv()["Snipe"].Character.RunAnimation ~= nil then
+            local Animate = L_Character:WaitForChild('Animate');
+            local idlestring = Animate:WaitForChild('run')
+            local FindId = RunList[getgenv()["Snipe"].Character.RunAnimation]
+            idlestring:FindFirstChild('RunAnim').AnimationId = FindId
+        end
+
+        if getgenv()["Snipe"].Character.JumpAnimation ~= nil then
+            local Animate = L_Character:WaitForChild('Animate');
+            local idlestring = Animate:WaitForChild('jump')
+            local FindId = JumpList[getgenv()["Snipe"].Character.JumpAnimation]
+            idlestring:FindFirstChild('JumpAnim').AnimationId = FindId
+        end
+
+        if getgenv()["Snipe"].Character.FallAnimation ~= nil then
+            local Animate = L_Character:WaitForChild('Animate');
+            local idlestring = Animate:WaitForChild('fall')
+            local FindId = FallList[getgenv()["Snipe"].Character.FallAnimation]
+            idlestring:FindFirstChild('FallAnim').AnimationId = FindId
+        end
+
+        if getgenv()["Snipe"].Character.IdleAnimation ~= nil then
+            local Animate = L_Character:WaitForChild('Animate');
+            local idlestring = Animate:WaitForChild('idle')
+            local FindId = IdleList[getgenv()["Snipe"].Character.IdleAnimation]
+            idlestring:FindFirstChild('Animation1').AnimationId = FindId.Animation1
+            idlestring:FindFirstChild('Animation2').AnimationId = FindId.Animation2
+        end
+
+
+
+    end
+
+    local on__update__func = function(...)
+        local args = {...}
+        local L_Character = L_Player.Character
+        if args[1] == 'Idle' then
+            if not L_Character then
+                return
+            end
+
+            local Animate = L_Character:WaitForChild('Animate');
+            local idlestring = Animate:WaitForChild('idle')
+            local FindId = IdleList[args[2]]
+            idlestring:FindFirstChild('Animation1').AnimationId = FindId.Animation1
+            idlestring:FindFirstChild('Animation2').AnimationId = FindId.Animation2
+            getgenv()["Snipe"].Character.IdleAnimation = args[2]
+        elseif args[1] == 'Run' then
+            if not L_Character then
+                return
+            end
+            local Animate = L_Character:WaitForChild('Animate');
+            local idlestring = Animate:WaitForChild('run')
+            local FindId = RunList[args[2]]
+            idlestring:FindFirstChild('RunAnim').AnimationId = FindId
+            getgenv()["Snipe"].Character.RunAnimation = args[2]
+        elseif args[1] == 'Jump' then
+            if not L_Character then
+                return
+            end
+
+            local Animate = L_Character:WaitForChild('Animate');
+            local idlestring = Animate:WaitForChild('jump')
+            local FindId = JumpList[args[2]]
+            idlestring:FindFirstChild('JumpAnim').AnimationId = FindId
+            getgenv()["Snipe"].Character.JumpAnimation = args[2]
+        elseif args[1] == 'Fall' then
+            if not L_Character then
+                return
+            end
+
+            local Animate = L_Character:WaitForChild('Animate');
+            local idlestring = Animate:WaitForChild('fall')
+            local FindId = FallList[args[2]]
+            idlestring:FindFirstChild('FallAnim').AnimationId = FindId
+            getgenv()["Snipe"].Character.FallAnimation = args[2]
+        end
+    end
+    Creat__Con(Signals['On__Character__Added'], on__Character__Added)
+    Creat__Con(Signals['OnAnimationChange'], on__update__func)
+end
+
+do
+    local on__ItemUpdate = function()
+        local L__Character = L_Player.Character
+
+        L__Character:WaitForChild('HumanoidRootPart')
+        L__Character:WaitForChild('Head')
+
+
+        local Shred__Character = getgenv()["Snipe"].Character
+        if Shred__Character.Has__FHN and not L__Character:FindFirstChild('FHN') then
+            local Accessory = Instance.new("Accessory")
+            Accessory.AttachmentPoint = CFrame.new(0, -0.8, 0)
+            Accessory.Name = 'FHN'
+            local Handle = Instance.new("Part", Accessory)
+            Handle.Name = "Handle"
+            Handle.Size = Vector3.new(3.499, 2.504, 0.688)
+
+            local Mesh = Instance.new("SpecialMesh")
+            Mesh.MeshType = Enum.MeshType.FileMesh
+            Mesh.MeshId = "http://www.roblox.com/asset/?id=215680403"
+            Mesh.TextureId = "http://www.roblox.com/asset/?id=215676264"
+            Mesh.Parent = Handle
+
+            local Attach = Instance.new("Attachment")
+            Attach.Name = "HatAttachment"
+            Attach.Position = Vector3.new(0, -0.7, 0)
+            Attach.Parent = Handle
+
+            local Fire = Instance.new('Fire', Handle)
+            Fire.Color = Color3.fromRGB(236, 139, 70)
+            Fire.Heat = 8
+            Fire.SecondaryColor = Color3.fromRGB(139, 80, 55)
+            Fire.Size = 3
+            Fire.TimeScale = 1
+
+            Accessory.Parent = L__Character
+
+            local RigidConstraint = Instance.new("RigidConstraint", Handle)
+            RigidConstraint.Attachment0 = Attach
+            RigidConstraint.Attachment1 = L__Character:FindFirstChild('Head'):FindFirstChild('HatAttachment')
+        elseif Shred__Character.Has__FHN == false and L__Character:FindFirstChild('FHN') then
+            if L__Character:FindFirstChild('FHN') then
+                L__Character:FindFirstChild('FHN').Parent = nil
+            end
+        end
+
+        if Shred__Character.Has__FHO and not L__Character:FindFirstChild('FHO') then
+            local Accessory = Instance.new("Accessory")
+            Accessory.AttachmentPoint = CFrame.new(0, -0.8, 0)
+            Accessory.Name = 'FHO'
+
+            local Handle = Instance.new("Part", Accessory)
+            Handle.Name = "Handle"
+            Handle.Size = Vector3.new(3.499, 2.504, 0.688)
+
+            local Mesh = Instance.new("SpecialMesh")
+            Mesh.MeshType = Enum.MeshType.FileMesh
+            Mesh.MeshId = "http://www.roblox.com/asset/?id=215680403"
+            Mesh.TextureId = "rbxassetid://658646189"
+            Mesh.Parent = Handle
+
+            local Attach = Instance.new("Attachment")
+            Attach.Name = "HatAttachment"
+            Attach.Position = Vector3.new(0, -0.7, 0)
+            Attach.Parent = Handle
+
+            local Fire = Instance.new('Fire', Handle)
+            Fire.Color = Color3.fromRGB(52, 206, 236)
+            Fire.Heat = 8
+            Fire.SecondaryColor = Color3.fromRGB(2, 64, 139)
+            Fire.Size = 3
+            Fire.TimeScale = 1
+
+            Accessory.Parent = L__Character
+
+            local RigidConstraint = Instance.new("RigidConstraint", Handle)
+            RigidConstraint.Attachment0 = Attach
+            RigidConstraint.Attachment1 = L__Character:FindFirstChild('Head'):FindFirstChild('HatAttachment')
+        elseif Shred__Character.Has__FHO == false and L__Character:FindFirstChild('FHO') then
+            if L__Character:FindFirstChild('FHO') then
+                L__Character:FindFirstChild('FHO').Parent = nil
+            end
+        end
+
+        if Shred__Character.Has__PHO and not L__Character:FindFirstChild('PHO') then
+            local Accessory = Instance.new("Accessory")
+            Accessory.AttachmentPoint = CFrame.new(0, -0.8, 0)
+            Accessory.Name = 'PHO'
+
+            local Handle = Instance.new("Part", Accessory)
+            Handle.Name = "Handle"
+            Handle.Size = Vector3.new(3.499, 2.504, 0.688)
+
+            local Mesh = Instance.new("SpecialMesh")
+            Mesh.MeshType = Enum.MeshType.FileMesh
+            Mesh.MeshId = "http://www.roblox.com/asset/?id=215680403"
+            Mesh.TextureId = "rbxassetid://1744057070"
+            Mesh.Parent = Handle
+
+            local Attach = Instance.new("Attachment")
+            Attach.Name = "HatAttachment"
+            Attach.Position = Vector3.new(0, -0.7, 0)
+            Attach.Parent = Handle
+
+            local Fire = Instance.new('Fire', Handle)
+            Fire.Color = Color3.fromRGB(91, 222, 68)
+            Fire.Heat = 8
+            Fire.SecondaryColor = Color3.fromRGB(0, 85, 0)
+            Fire.Size = 3
+            Fire.TimeScale = 1
+
+            Accessory.Parent = L__Character
+
+            local RigidConstraint = Instance.new("RigidConstraint", Handle)
+            RigidConstraint.Attachment0 = Attach
+            RigidConstraint.Attachment1 = L__Character:FindFirstChild('Head'):FindFirstChild('HatAttachment')
+        elseif Shred__Character.Has__PHO == false and L__Character:FindFirstChild('PHO') then
+            if L__Character:FindFirstChild('PHO') then
+                L__Character:FindFirstChild('PHO').Parent = nil
+            end
+        end
+    end
+    Creat__Con(Signals['On__Character__Added'], on__ItemUpdate)
+    Creat__Con(Signals['LarpItemVl3'], on__ItemUpdate)
+end
+
+
+do
+
+    local on__character__uip = function()
+        if not getgenv()["Snipe"].Character.LoadoutEnabled then return end
+
+        for key, value in next, getgenv()["Snipe"].Character.LoadoutGunList do
+            local backpack = L_Player.Backpack
+            if backpack:WaitForChild(key) then
+                local gun = backpack[key]
+                gun.Parent = L_Player.Character
+            end
+        end
+
+    end
+
+    local on__Call__NV1__UP = function()
+        if not getgenv()["Snipe"].Character.LoadoutEnabled then return end
+        loadout__Query = true
+        task.spawn(function()
+            if L_Player.Character then
+                local Hum = L_Player.Character.Humanoid
+                Hum:UnequipTools()
+            end
+        end)
+
+        for key, value in next, getgenv()["Snipe"].Character.LoadoutGunList do
+            local backpack = L_Player.Backpack
+            if backpack[key] then
+                local gun = backpack[key]
+                gun.Parent = L_Player.Character
+            end
+        end
+
+        task.wait(0.5)
+        loadout__Query = false
+    end
+
+    Creat__Con(Signals['On__Character__Added'], on__character__uip)
+    Creat__Con(Signals['OnLoadOutListUpdate'], on__Call__NV1__UP)
+end
+
+local Get__Closet__Player = function()
+    local Fov__Silent = getgenv()["Snipe"].SilentAim.SilentFov
+    local TargetNext
+    local MouseLocation = UserInputService__:GetMouseLocation()
+
+    local MyChar = L_Player.Character
+    if not MyChar then return nil end
+    local MyHRP = MyChar:FindFirstChild("HumanoidRootPart")
+    if not MyHRP then return nil end
+
+    for i = 1, #Players do
+        local Player = Players[i]
+        local Char = Player.Character
+        if not Char then continue end
+
+
+        local Bodyeffects = Char:FindFirstChild("BodyEffects")
+        if Bodyeffects and Bodyeffects:FindFirstChild("K.O") and Bodyeffects['K.O'].Value and getgenv()["Snipe"].SilentAim.DownCheck == true then
+            continue
+        end
+
+        local hrp = Char:FindFirstChild("HumanoidRootPart")
+        local head = Char:FindFirstChild("Head")
+        if not hrp or not head then continue end
+
+        local Vector, OnScreen = Camera__:WorldToViewportPoint(hrp.Position)
+        if not OnScreen then continue end
+
+        local Distance = (MouseLocation - Vector2.new(Vector.X, Vector.Y)).Magnitude
+        if Distance >= Fov__Silent then continue end
+
+        if getgenv()["Snipe"].SilentAim.WallCheck == true then
+            local amount = Camera__:GetPartsObscuringTarget(
+                {MyHRP.Position, hrp.Position}, 
+                {MyChar, Char}
+            )
+
+            if #amount == 0 then
+                TargetNext = head
+                Fov__Silent = Distance
+            end
+
+        else
+            TargetNext = head
+            Fov__Silent = Distance
+        end
+    end
+
+    return TargetNext
+end 
+
+do
+
+    RunService_['Heartbeat']:Connect(function(dt)
+
+        if getgenv()["Snipe"].SilentAim.SilentAimEnabled and getgenv()["Snipe"].SilentAim.SilentAimMode == 'FreeForAll' then
+            getgenv()["Snipe"].SilentAim.SelectionAim = Get__Closet__Player()
+        end
+
+
+
+        if getgenv()["Snipe"].SilentAim.Visual.TraceEnabled then
+            if getgenv()["Snipe"].SilentAim.SelectionAim then
+                local b135, xc31 = Camera__:WorldToViewportPoint(getgenv()["Snipe"].SilentAim.SelectionAim.Position)
+                if xc31 then
+                    TraceSilentAim.Visible = true
+                    TraceSilentAim.From = Vector2.new(L_Mouse.X, L_Mouse.Y + 55)
+                    TraceSilentAim.To = Vector2.new(b135.X, b135.Y)
+                else
+                    TraceSilentAim.Visible = false
+                end
+            else
+
+                TraceSilentAim.Visible = false 
+            end
+        end
+
+
+        if getgenv()["Snipe"].SilentAim.FovEnabled then
+            FovSilentAim.Position = UserInputService__:GetMouseLocation()
+            FovSilentAim.Visible = true
+            FovSilentAim.Color = getgenv()["Snipe"].SilentAim.FovColor
+            FovSilentAim.Radius = getgenv()["Snipe"].SilentAim.SilentFov
+        else
+            FovSilentAim.Visible = false
+        end
+
+
+
+
+        
+    end)
+end
+
+local old
+old = hookmetamethod(game, "__index", function(self, property)
+    if self == L_Mouse and not checkcaller() then
+        if property == "Target" or property == "target" then
+            if getgenv()["Snipe"].SilentAim.SelectionAim then
+                return getgenv()["Snipe"].SilentAim.SelectionAim
+            end
+        end
+        if property == "Hit" or property == "hit" then
+            if getgenv()["Snipe"].SilentAim.SelectionAim then
+                return getgenv()["Snipe"].SilentAim.SelectionAim.CFrame
+            end
+        end
+    end
+    return old(self, property)
+end)
+
+do
+    for i, Player in pairs(Users_:GetPlayers()) do
+        if Player == L_Player then
+            continue
+        end
+        table.insert(Players, Player)
+    end
+
+    Users_.PlayerAdded:Connect(function(plr)
+        table.insert(Players, plr)
+    end)
+
+    Users_.PlayerRemoving:Connect(function(plr)
+        local index = table.find(Players,plr)
+        if index then
+            table.remove(Players, index)
+        end
+    end)
+end
+
+
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+Library.ShowCustomCursor = false
+local Window = Library:CreateWindow({
+    Title = 'Polarie',
+    Center = true,
+    AutoShow = true,
+    TabPadding = 8,
+    MenuFadeTime = 0.2,
+    ShowCustomCursor = false,
+})
+
+local Tabs = {
+    Character = Window:AddTab('Character'),
+    Main = Window:AddTab('Main'),
+    ['UI Settings'] = Window:AddTab('UI Settings'),
+}
+
+
+do
+    local FakeItems = Tabs.Character:AddLeftGroupbox('Larp Items')
+    local Animations = Tabs.Character:AddLeftGroupbox('Animations')
+    local Macro = Tabs.Character:AddRightGroupbox('Macro')
+    local Loadout = Tabs.Character:AddRightGroupbox('Loadout')
+
+    FakeItems:AddToggle('FHO', {
+        Text = 'Frozen Horns of the Frigid Planes';
+        Default = false;
+    });
+
+    FakeItems:AddToggle('PHO', {
+        Text = 'Poisoned Horns of the Toxic Wasteland';
+        Default = false;
+    })
+
+    FakeItems:AddToggle('FHN', {
+        Text = 'Fiery Horns of the Netherworld';
+        Default = false;
+    })
+
+    Animations:AddDropdown('Idle', {
+        Values = { 'Zombie','Mage', 'Superhero', 'Toy', 'Robot', 'Ninja', 'Cartoony', 'Oldschool', 'Pirate', 'Vampire', 'Elder','Knight', 'Wicked', 'Astronaut'},
+        Default = 0,
+        Multi = false,
+        Text = 'Idle Animations',
+        Callback = function(Value)
+            Signals['OnAnimationChange']:Fire('Idle', Value)
+        end
+    })
+
+    Animations:AddDropdown('Jump', {
+        Values = { 'Zombie','Mage', 'Superhero', 'Toy', 'Robot', 'Ninja', 'Oldschool', 'Cartoony', 'Pirate', 'Vampire', 'Elder','Knight', 'Wicked', 'Astronaut'},
+        Default = 0,
+        Multi = false,
+        Text = 'Jump Animations',
+        Callback = function(Value)
+            Signals['OnAnimationChange']:Fire('Jump', Value)
+        end
+    })
+
+    Animations:AddDropdown('Fall', {
+        Values = { 'Zombie','Mage', 'Superhero', 'Toy', 'Robot', 'Ninja', 'Cartoony', 'Pirate', 'Oldschool', 'Vampire', 'Elder','Knight', 'Wicked', 'Astronaut'},
+        Default = 0,
+        Multi = false,
+        Text = 'Fall Animations',
+        Callback = function(Value)
+            Signals['OnAnimationChange']:Fire('Fall', Value)
+        end
+    })
+
+    Macro:AddToggle('Macro', {
+        Text = 'Macro Enabled';
+        Default = false;
+    });
+
+    Macro:AddLabel('Keybind'):AddKeyPicker('KeyMacro', {
+        Default = 'Z',
+        SyncToggleState = false,
+        Mode = 'Toggle',
+
+        Text = 'Hold the key to enable macro animation',
+        NoUI = false,
+
+        Callback = function(Value)
+
+        end,
+
+        ChangedCallback = function(New)
+            
+        end
+    });
+
+    Macro:AddDropdown('MacroGun', {
+        Values = { '[Double-Barrel SG]', '[TacticalShotgun]', '[Revolver]' },
+        Default = 1,
+        Multi = false,
+        Text = 'Macro Gun',
+        Callback = function(Value)
+
+        end
+    });
+
+    Loadout:AddToggle('Loadout', {
+        Text = 'Loadout Enabled';
+        Default = false;
+        Callback = function(Vl3)
+            getgenv()["Snipe"].Character.LoadoutEnabled = Vl3
+            Signals['OnLoadOutListUpdate']:Fire()
+        end
+    });
+
+    Loadout:AddDropdown('Loadout', {
+        Values = { '[Double-Barrel SG]', '[TacticalShotgun]', '[Revolver]' },
+        Default = 0,
+        Multi = true,
+        Text = 'Loadout Guns',
+        Callback = function(Value)
+            getgenv()["Snipe"].Character.LoadoutGunList = {}
+            for key, value in next, Value do
+                getgenv()["Snipe"].Character.LoadoutGunList[key] = value
+            end
+            Signals['OnLoadOutListUpdate']:Fire()
+        end
+    });
+
+    Animations:AddDropdown('Run', {
+        Values = { 'Zombie','Mage', 'Superhero', 'Toy', 'Robot', 'Ninja', 'Oldschool', 'Cartoony', 'Pirate', 'Vampire', 'Elder','Knight', 'Astronaut'},
+        Default = 0,
+        Multi = false,
+        Text = 'Run Animations',
+        Callback = function(Value)
+            Signals['OnAnimationChange']:Fire('Run', Value)
+        end
+    })
+
+    Toggles.FHN:OnChanged(function()
+        local newvl3 = Toggles.FHN.Value
+        getgenv()["Snipe"].Character.Has__FHN = newvl3
+        Signals['LarpItemVl3']:Fire(1)
+    end)
+
+    Toggles.FHO:OnChanged(function()
+        local newvl3 = Toggles.FHO.Value
+        getgenv()["Snipe"].Character.Has__FHO = newvl3
+        Signals['LarpItemVl3']:Fire(1)
+    end)
+
+    Toggles.PHO:OnChanged(function()
+        local newvl3 = Toggles.PHO.Value
+        getgenv()["Snipe"].Character.Has__PHO = newvl3
+        Signals['LarpItemVl3']:Fire(1)
+    end)
+end
+
+do
+
+    local Main = Tabs.Main:AddLeftGroupbox('Silent Aim')
+    local Visual = Tabs.Main:AddLeftGroupbox('Visual')
+    local Range = Tabs.Main:AddLeftGroupbox('Range Manipulation')
+
+    Main:AddToggle('SilentAim', {
+        Text = 'Silent Aim';
+        Default = false;
+
+        Callback = function(v131)
+            getgenv()["Snipe"].SilentAim.SilentAimEnabled = v131
+        end
+
+    }):AddKeyPicker('KeySilent', {
+        Default = '..',
+        SyncToggleState = false,
+        Mode = 'Toggle',
+
+        Text = '',
+        NoUI = false,
+
+        Callback = function(Value)
+            getgenv()["Snipe"].SilentAim.SilentAimEnabled = not getgenv()["Snipe"].SilentAim.SilentAimEnabled
+            Toggles.SilentAim:SetValue(getgenv()["Snipe"].SilentAim.SilentAimEnabled)
+            if getgenv()["Snipe"].SilentAim.SilentAimMode == 'Toggled' then
+                if getgenv()["Snipe"].SilentAim.SilentAimEnabled then
+                    local Target = Get__Closet__Player()
+                    getgenv()["Snipe"].SilentAim.SelectionAim = Target
+                else
+                    getgenv()["Snipe"].SilentAim.SelectionAim = nil
+                end
+            end
+        end,
+
+        ChangedCallback = function(New)
+            
+        end
+    });
+
+    Main:AddToggle('Fov', {
+        Text = 'Fov';
+        Default = false;
+        Callback = function(v)
+            getgenv()["Snipe"].SilentAim.FovEnabled = v
+        end
+    }):AddColorPicker('Fov Color', {
+        Default = Color3.new(255, 255, 255),
+        Title = 'Fov Color',
+        Transparency = 0,
+
+        Callback = function(Value)
+            getgenv()["Snipe"].SilentAim.FovColor = Value
+        end
+    })
+
+    Main:AddToggle('WallCheck', {
+        Text = 'Wall Check';
+        Default = false;
+
+        Callback = function(Value)
+            getgenv()["Snipe"].SilentAim.WallCheck = Value
+        end
+    }); 
+
+    Main:AddToggle('Grabbed', {
+        Text = 'Grabbed Check';
+        Default = false;
+    }); 
+    
+    Main:AddToggle('Down', {
+        Text = 'Down Check';
+        Default = false;
+
+        Callback = function(Value)
+            getgenv()["Snipe"].SilentAim.DownCheck = Value
+        end
+
+    });
+
+    Main:AddDropdown('AimMethod', {
+        Values = { 'FreeForAll', 'Toggled' },
+        Default = 1,
+        Multi = false,
+        Text = 'Aim Method',
+        Callback = function(Value)
+            getgenv()["Snipe"].SilentAim.SilentAimMode = Value
+        end
+    });
+
+    Main:AddDropdown('Method', {
+        Values = { 'Mouse', 'Raycast' },
+        Default = 1,
+        Multi = false,
+        Text = 'Selection Method',
+        Callback = function(Value)
+            getgenv()["Snipe"].SilentAim.SilentAimSelection = Value
+        end
+    });
+
+    Main:AddSlider('Fov', {
+        Text = 'Fov Ammout',
+        Default = 200,
+        Min = 0,
+        Max = 500,
+        Rounding = 0,
+        Compact = true,
+
+        Callback = function(Value)
+            getgenv()["Snipe"].SilentAim.SilentFov = Value
+        end
+    });
+
+    Range:AddToggle('RevolverRange', {
+        Text = 'Revolver Enabled';
+        Default = false;
+
+        Callback = function(Value)
+            getgenv()["Snipe"].RangeManipulation.RevolverEnabled = Value
+        end
+    }); 
+
+    Range:AddSlider('RevolverSlider', {
+        Text = 'Revolver',
+        Default = 250,
+        Min = 250,
+        Max = 500,
+        Rounding = 0,
+        Compact = true,
+
+        Callback = function(Value)
+            getgenv()["Snipe"].RangeManipulation.Revolver = Value
+            Signals['on__Change__Range']:Fire('Revolver')
+        end
+    });
+
+    Range:AddToggle('DoubleBarrelSGRange', {
+        Text = 'Double-Barrel SG Enabled';
+        Default = false;
+
+        Callback = function(Value)
+            getgenv()["Snipe"].RangeManipulation.DoubleBarrelSGEnabled = Value
+        end
+    }); 
+
+    Range:AddSlider('Double-BarrelSGSlider', {
+        Text = 'Double-Barrel SG',
+        Default = 95,
+        Min = 95,
+        Max = 500,
+        Rounding = 0,
+        Compact = true,
+
+        Callback = function(Value)
+            getgenv()["Snipe"].RangeManipulation.DoubleBarrelSG = Value
+            Signals['on__Change__Range']:Fire('DoubleBarrelSG')
+        end
+    });
+
+    Range:AddToggle('TacticalShotgunRange', {
+        Text = 'TacticalShotgun Enabled';
+        Default = false;
+
+        Callback = function(Value)
+            getgenv()["Snipe"].RangeManipulation.TacticalShotgunEnabled = Value
+        end
+    });
+
+    Range:AddSlider('TacticalShotgunSlider', {
+        Text = 'TacticalShotgun';
+        Default = 75,
+        Min = 75,
+        Max = 500,
+        Rounding = 0,
+        Compact = true,
+
+        Callback = function(Value)
+            getgenv()["Snipe"].RangeManipulation.TacticalShotgun = Value
+            Signals['on__Change__Range']:Fire('TacticalShotgun')
+        end
+    });
+
+    Visual:AddToggle('Trace', {
+        Text = 'Trace';
+        Default = false;
+
+        Callback = function(Value)
+            getgenv()["Snipe"].SilentAim.Visual.TraceEnabled = Value
+        end
+
+    }):AddColorPicker('TraceColor', {
+        Default = Color3.new(255, 255, 255),
+        Title = 'Trace Color',
+        Transparency = 0,
+
+        Callback = function(Value)
+            TraceSilentAim.Color = Value
+            print('[cb] Color changed!', Value)
+        end
+    })
+end
+
+
+
