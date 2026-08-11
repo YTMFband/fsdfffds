@@ -890,7 +890,7 @@ local Window = Library:CreateWindow({
     Title = 'Axis',
     Center = true,
     AutoShow = true,
-    TabPadding = 15,
+    TabPadding = 9,
     MenuFadeTime = 0.2,
     ShowCustomCursor = false,
 })
