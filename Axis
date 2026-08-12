@@ -60,8 +60,6 @@ getgenv()["Snipe"] = {
 
     },
 
-
-
     RangeManipulation = {
 
         RevolverEnabled = false;
@@ -73,6 +71,24 @@ getgenv()["Snipe"] = {
         DoubleBarrelSG = 95;
 
     },
+
+    Triggerbot = {
+
+
+        TriggerbotEnabled = false;
+        TriggerbotMode = 'Hold';
+        TriggerbotFireRate = 0.1;
+
+        Holding = false;
+
+
+        HitboxEnabled = false;
+        HitboxX = 0;
+        HitboxY = 0;
+        HitboxZ = 0;
+
+
+    }
 }
 
 -->> ('Local') <<--
@@ -106,11 +122,15 @@ FovSilentAim.NumSide = 100
 local last__chance__shoot = 0
 local last__chance__hit = false
 
+local TB__Connection = nil;
+local Last__Shoot__tb = 0;
+
 if not game:GetService("ReplicatedStorage").Modules.GunHandler then
     warn('Cant Work')
     return 
 end
 local GunHandler = require(game:GetService("ReplicatedStorage").Modules.GunHandler)
+local MainModule = require(game:GetService("ReplicatedStorage").MainModule)
 
 -->> ('Table') <<--
 
@@ -193,6 +213,9 @@ local Signals = {
     ['OnChildRemoved']= signal["new"]();
 
     ['on__Change__Range']= signal["new"]();
+    ['On__Hitbox__tb'] = signal["new"]();
+
+    ['On__Hitbox__vl31'] = signal["new"]();
 
 }
 
@@ -283,6 +306,94 @@ do
 
     Creat__Con(L_Player['CharacterAdded'], Char__Added_F)
     Char__Added_F()
+end
+
+
+
+do
+
+
+    local on__Character__Added = function(char)
+        local hrp = char:WaitForChild("HumanoidRootPart", 5)
+        if not hrp then return end
+
+        
+        if hrp:FindFirstChild("ExpandHitbox") then return end
+
+        local hitbox = Instance.new("Part")
+        hitbox.Name = "ExpandHitbox"
+        hitbox.Size = Vector3.new(getgenv()["Snipe"].Triggerbot.HitboxX, getgenv()["Snipe"].Triggerbot.HitboxY, getgenv()["Snipe"].Triggerbot.HitboxZ)
+        hitbox.CFrame = hrp.CFrame 
+        hitbox.Transparency = 1
+        hitbox.Color = Color3.fromRGB(255, 0, 0)
+        hitbox.Material = Enum.Material.ForceField
+        
+        hitbox.CanCollide = false
+        hitbox.CanTouch = false
+        hitbox.CanQuery = false 
+        hitbox.Anchored = false
+        hitbox.Massless = true
+        
+        local weld = Instance.new("WeldConstraint")
+        weld.Part0 = hitbox
+        weld.Part1 = hrp
+        weld.Parent = hitbox
+        table.insert(MainModule.Ignored, hitbox)
+        hitbox.Parent = hrp
+    end
+
+    local on__update__size = function(X,Y,Z)
+        for i = 1, #Players do
+            local Player = Players[i]
+            local char = Player.Character
+            if not char then continue end
+
+            local HRP = char:WaitForChild('HumanoidRootPart', 1)
+            local hitnox = HRP:FindFirstChild("ExpandHitbox")
+
+            hitnox.Size = Vector3.new(X,Y,Z)
+        end
+    end
+
+    local on__update__bl4 = function(X,Y,Z)
+        for i = 1, #Players do
+            local Player = Players[i]
+            local char = Player.Character
+            if not char then continue end
+
+            local HRP = char:WaitForChild('HumanoidRootPart', 1)
+            local hitnox = HRP:FindFirstChild("ExpandHitbox")
+
+            hitnox.CanQuery =  getgenv()["Snipe"].Triggerbot.HitboxEnabled
+
+        end
+    end
+
+
+    for _, Player in ipairs(Users_:GetPlayers()) do
+        if Player ~= game:GetService("Players").LocalPlayer then
+            if Player.Character then
+                task.spawn(on__Character__Added, Player.Character)
+            end
+
+            Player.CharacterAdded:Connect(function(char)
+                task.spawn(on__Character__Added, char)
+            end)
+        end
+    end
+
+    Users_.PlayerAdded:Connect(function(plr)
+        if plr.Character then
+            task.spawn(on__Character__Added, Player.plr.Character)
+        end
+
+        plr.CharacterAdded:Connect(function(char)
+            task.spawn(on__Character__Added, char)
+        end)
+    end)
+
+    Creat__Con(Signals['On__Hitbox__vl31'], on__update__bl4)
+    Creat__Con(Signals['On__Hitbox__tb'], on__update__size)
 end
 
 
@@ -745,6 +856,11 @@ local Get__Closet__Player = function()
     return TargetNext
 end 
 
+
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+
 do
 
     RunService_['Heartbeat']:Connect(function(dt)
@@ -781,10 +897,22 @@ do
             FovSilentAim.Visible = false
         end
 
+        if getgenv()["Snipe"].Triggerbot.Holding and getgenv()["Snipe"].Triggerbot.TriggerbotEnabled and L_Player.Character then
+            local Tool = L_Player.Character:FindFirstChildOfClass('Tool')
+            if Tool and table.find(WeaponNameList, Tool.Name) and tick() - Last__Shoot__tb >= getgenv()["Snipe"].Triggerbot.TriggerbotFireRate then
+                local mouse = UserInputService__:GetMouseLocation()
+		        local Raycast = Camera__:ViewportPointToRay(mouse.X, mouse.Y);
+                rayParams.FilterDescendantsInstances = {L_Player.Character}
+                local RaycastResult = workspace:Raycast(Raycast.Origin, Raycast.Direction * 500, rayParams);
+                if RaycastResult and RaycastResult.Instance and RaycastResult.Instance:IsDescendantOf(game.workspace.Players) then
+                    Last__Shoot__tb = tick()
+                    Tool:Activate()
+                end
+            end
+
+        end
 
 
-
-        
     end)
 end
 
@@ -899,7 +1027,7 @@ local Window = Library:CreateWindow({
     Title = 'Axis',
     Center = true,
     AutoShow = true,
-    TabPadding = 9,
+    TabPadding = 7,
     MenuFadeTime = 0.2,
     ShowCustomCursor = false,
 })
@@ -907,6 +1035,9 @@ local Window = Library:CreateWindow({
 local Tabs = {
     Character = Window:AddTab('Character'),
     SilentAim = Window:AddTab('Silent Aim'),
+    Triggerbot = Window:AddTab('Triggerbot'),
+    Misc = Window:AddTab('Triggerbot'),
+
     ['UI Settings'] = Window:AddTab('UI Settings'),
 }
 
@@ -1043,7 +1174,7 @@ do
         Default = '..',
         SyncToggleState = false,
         Mode = 'Toggle',
-
+ 
         Text = '',
         NoUI = false,
 
@@ -1241,55 +1372,6 @@ do
         end
     });
 
-    Utility:AddToggle('DoubleBarrelSGOffsets', {
-        Text = 'Double-Barrel SG Enabled';
-        Default = false;
-
-        Callback = function(Value)
-            getgenv()["Snipe"].Guns.DoubleBarrelSGEnabled = Value
-        end
-    }); 
-
-    Utility:AddSlider('Double-BarrelSGOffsetsSlider', {
-        Text = 'Double-Barrel SG Offsets',
-        Default = 0,
-        Min = 0,
-        Max = 1,
-        Rounding = 1,
-        Compact = true,
-
-        Callback = function(Value)
-            getgenv()["Snipe"].Guns.DoubleBarrelSG = Value
-        end
-    });
-
-
-    Utility:AddToggle('TacticalShotgunOffsets', {
-        Text = 'TacticalShotgun Enabled';
-        Default = false;
-
-        Callback = function(Value)
-            getgenv()["Snipe"].Guns.TacticalShotgunEnabled = Value
-        end
-    });
-
-    Utility:AddSlider('TacticalShotgunOffsetsSlider', {
-        Text = 'TacticalShotgun Offsets';
-        Default = 0,
-        Min = 0,
-        Max = 1,
-        Rounding = 1,
-        Compact = true,
-
-        Callback = function(Value)
-            getgenv()["Snipe"].Guns.TacticalShotgun = Value
-        end
-    });
-
-
-
-
-
     Visual:AddToggle('Trace', {
         Text = 'Trace';
         Default = false;
@@ -1308,6 +1390,139 @@ do
             print('[cb] Color changed!', Value)
         end
     })
+end
+
+do
+
+    local Main = Tabs.Triggerbot:AddLeftGroupbox('Main')
+    local Hitbox = Tabs.Triggerbot:AddRightGroupbox('Hitbox')
+
+
+    Main:AddToggle('TriggerbotEnabled', {
+        Text = 'Triggerbot Enabled';
+        Default = false;
+
+        Callback = function(Value)
+            getgenv()["Snipe"].Triggerbot.TriggerbotEnabled = Value
+        end
+    });
+
+
+    Main:AddLabel('Triggerbot KeyBind'):AddKeyPicker('TB', {
+        Default = 'X',
+        SyncToggleState = false,
+        Mode = 'Toggle',
+
+        Text = '',
+        NoUI = false,
+
+        Callback = function(Value)
+
+            if not getgenv()["Snipe"].Triggerbot.TriggerbotEnabled then return end
+            if getgenv()["Snipe"].Triggerbot.TriggerbotMode == 'Hold' then
+                getgenv()["Snipe"].Triggerbot.Holding = true
+
+                if TB__Connection then
+                    TB__Connection:Disconnect()
+                    TB__Connection = nil
+                end
+
+                TB__Connection = UserInputService__.InputEnded:Connect(function(i,g)
+                    if g then return end
+                    if i.KeyCode == Enum.KeyCode[tostring(Options.TB.Value)] then
+                        getgenv()["Snipe"].Triggerbot.Holding = false
+                        TB__Connection:Disconnect()
+                        TB__Connection = nil
+                    end
+                end)
+                return
+            end
+
+            getgenv()["Snipe"].Triggerbot.Holding = not getgenv()["Snipe"].Triggerbot.Holding
+
+        end,
+
+        ChangedCallback = function(New)
+            
+        end
+    });
+
+    Main:AddSlider('FireRate', {
+        Text = 'FireRate',
+        Default = 0.1,
+        Min = 0,
+        Max = 1,
+        Rounding = 2,
+        Compact = false,
+
+        Callback = function(Value)
+            getgenv()["Snipe"].Triggerbot.TriggerbotFireRate = Value
+        end
+    });
+
+
+    Main:AddDropdown('TriggerbotKeyBind', {
+        Values = { 'Hold', 'Toggled' },
+        Default = 1,
+        Multi = false,
+        Text = 'Mode',
+        Callback = function(Value)
+            getgenv()["Snipe"].Triggerbot.TriggerbotMode = Value
+        end
+    });
+
+    Hitbox:AddToggle('HitboxEnabled', {
+        Text = 'Hitbox Enabled';
+        Default = false;
+
+        Callback = function(Value)
+            getgenv()["Snipe"].Triggerbot.HitboxEnabled = Value
+            Signals['On__Hitbox__vl31']:Fire()
+        end
+    });
+
+    Hitbox:AddSlider('HitBoxX', {
+        Text = 'Hitbox X',
+        Default = 0,
+        Min = 0,
+        Max = 15,
+        Rounding = 0,
+        Compact = true,
+
+        Callback = function(Value)
+            getgenv()["Snipe"].Triggerbot.HitboxX = Value
+            Signals['On__Hitbox__tb']:Fire(getgenv()["Snipe"].Triggerbot.HitboxX, getgenv()["Snipe"].Triggerbot.HitboxY, getgenv()["Snipe"].Triggerbot.HitboxZ)
+        end
+    });
+
+    Hitbox:AddSlider('HitBoxY', {
+        Text = 'Hitbox Y',
+        Default = 0,
+        Min = 0,
+        Max = 15,
+        Rounding = 0,
+        Compact = true,
+
+        Callback = function(Value)
+            getgenv()["Snipe"].Triggerbot.HitboxY = Value
+            Signals['On__Hitbox__tb']:Fire(getgenv()["Snipe"].Triggerbot.HitboxX, getgenv()["Snipe"].Triggerbot.HitboxY, getgenv()["Snipe"].Triggerbot.HitboxZ)
+        end
+    });
+
+    Hitbox:AddSlider('HitBoxZ', {
+        Text = 'Hitbox Z',
+        Default = 0,
+        Min = 0,
+        Max = 15,
+        Rounding = 0,
+        Compact = true,
+
+        Callback = function(Value)
+            getgenv()["Snipe"].Triggerbot.HitboxZ = Value
+            Signals['On__Hitbox__tb']:Fire(getgenv()["Snipe"].Triggerbot.HitboxX, getgenv()["Snipe"].Triggerbot.HitboxY, getgenv()["Snipe"].Triggerbot.HitboxZ)
+        end
+    });
+
 end
 
 
