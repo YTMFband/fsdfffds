@@ -1036,8 +1036,6 @@ local Tabs = {
     Character = Window:AddTab('Character'),
     SilentAim = Window:AddTab('Silent Aim'),
     Triggerbot = Window:AddTab('Triggerbot'),
-    Misc = Window:AddTab('Triggerbot'),
-
     ['UI Settings'] = Window:AddTab('UI Settings'),
 }
 
