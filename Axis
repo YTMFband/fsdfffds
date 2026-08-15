@@ -1,129 +1,10 @@
--->> ('Shared') <<--
-getgenv()["Snipe"] = {
 
-    Character = {
+-->> ('Loading') <<--
+repeat task["wait"]() until game:IsLoaded()
 
-        Has__FHO = false,
-        Has__PHO = false,
-        Has__FHN = false,
-
-
-        RunAnimation = nil;
-        IdleAnimation = nil;
-        JumpAnimation = nil;
-        FallAnimation = nil;
-
-
-        MacroEnabled = false;
-        GunToMacro = nil;
-
-
-        LoadoutEnabled = false,
-        LoadoutGunList = {},
-
-    },
-
-    SilentAim = {
-
-        SilentAimEnabled = false;
-        SelectionAim = nil;
-        HitChance = 100;
-        SelectPart = 'Head';
-
-        WallCheck = false;
-        GrabbedCheck = false;
-        DownCheck = false;
-        CrewCheck = false;
-        FriendCheck = false;
-
-        FovEnabled = false;
-        SilentFov = 200;
-        FovColor = nil;
-
-        SilentAimMode = 'FreeForAll',
-        SilentAimSelection = 'Raycast',
-
-        Visual = {
-            TraceEnabled = false;
-            TraceColor = nil;
-        },
-    },
-
-
-    Guns = {
-
-        TacticalShotgunEnabled = false;
-        DoubleBarrelSGEnabled = false;
-
-        TacticalShotgun = 0;
-        DoubleBarrelSG = 0;
-
-    },
-
-    RangeManipulation = {
-
-        RevolverEnabled = false;
-        TacticalShotgunEnabled = false;
-        DoubleBarrelSGEnabled = false;
-
-        Revolver = 250;
-        TacticalShotgun = 75;
-        DoubleBarrelSG = 95;
-
-    },
-
-    Triggerbot = {
-
-
-        TriggerbotEnabled = false;
-        TriggerbotMode = 'Hold';
-        TriggerbotFireRate = 0.1;
-
-        Holding = false;
-
-
-        HitboxEnabled = false;
-        HitboxX = 0;
-        HitboxY = 0;
-        HitboxZ = 0;
-
-
-    }
-}
-
--->> ('Local') <<--
-
-local RunService_ = game:GetService("RunService");
-local Users_ = game:GetService("Players");
-local InsertService__ = game:GetService("InsertService");
-local Camera__ = workspace.CurrentCamera;
-local UserInputService__ = game:GetService("UserInputService");
-local __ReplicatedStorage = game:GetService("ReplicatedStorage");
-
-local L_Player = Users_.LocalPlayer;
-local L_Mouse = L_Player:GetMouse();
-local Gundata = nil;
-
-local loadout__Query = false;
-
-local TraceSilentAim = Drawing.new("Line")
-TraceSilentAim.Visible = true
-TraceSilentAim.Color = Color3.fromRGB(255,255,255)
-TraceSilentAim.Thickness = 2
-TraceSilentAim.Transparency = 1
-
-local FovSilentAim = Drawing.new("Circle")
-FovSilentAim.Color = Color3.fromRGB(255,255,255)
-FovSilentAim.Thickness = 2
-FovSilentAim.Transparency = 1
-FovSilentAim.Radius = 200
-FovSilentAim.NumSide = 100
-
-local last__chance__shoot = 0
-local last__chance__hit = false
-
-local TB__Connection = nil;
-local Last__Shoot__tb = 0;
+if (identifyexecutor() == 'Xeno' or identifyexecutor() == 'Solara') and hookmetamethod == nil then
+    game:GetService('Players').LocalPlayer:Kick('[Axis] :  Low-unc Executor Detected ')
+end
 
 if not game:GetService("ReplicatedStorage").Modules.GunHandler then
     warn('Cant Work')
@@ -132,808 +13,421 @@ end
 local GunHandler = require(game:GetService("ReplicatedStorage").Modules.GunHandler)
 local MainModule = require(game:GetService("ReplicatedStorage").MainModule)
 
--->> ('Table') <<--
-
-local signal = {};
-local connections = {};
-local WhitelistPlayers = {};
-local Is__player__visible = {};
-local is__Player__down = {};
-local Players = {};
-
-local WeaponNameList = {
-    '[Double-Barrel SG]', '[Revolver]', '[TacticalShotgun]'
-}
-
--->> ('Is__Support__High') <<--
-
-local Creat__Con = function(signal, callback)
-    local connection = signal:Connect(callback)
-    connections[#connections + 1] = connection
-    return connection
-end
-
--->> ('Signal') <<--
-do
-    local connection = {}
-
-    connection["__index"] = connection
-
-    function connection.new(signal, callback)
-        local callbacks = signal["callbacks"]
-        callbacks[#callbacks+1] = callback
-
-        return setmetatable({
-            callback = callback,
-            signal = signal
-        }, connection)
-    end
-
-    function connection:Disconnect()
-        local callbacks = self["signal"]["callbacks"]
-        local callback = self["callback"]
-
-        for i = 1, #callbacks do
-            if callbacks[i] == callback then
-                remove(callbacks, i)
-                break
-            end
-        end
-    end
 
-    signal["__index"] = signal
-
-    signal.new = function()
-        return setmetatable({
-            callbacks = {}
-        }, signal)
-    end
-    function signal:Fire(...)
-        local callbacks = self["callbacks"]
-        for i = 1, #callbacks do
-            task.spawn(callbacks[i], ...)
-        end
-    end
-
-    function signal:Connect(callback)
-        return connection["new"](self, callback)
-    end
-end
-
-
-local Signals = {
-
-    ['On__Character__Added'] = signal["new"](),
-    ['LarpItemVl3'] = signal["new"]();
-
-    ['OnAnimationChange'] = signal["new"]();
-    ['OnLoadOutListUpdate'] = signal["new"]();
 
-    ['OnChildAdded']= signal["new"]();
-    ['OnChildRemoved']= signal["new"]();
-
-    ['on__Change__Range']= signal["new"]();
-    ['On__Hitbox__tb'] = signal["new"]();
-
-    ['On__Hitbox__vl31'] = signal["new"]();
-
-}
-
-
-
-do
-    setthreadidentity(2)
-    local hooked = {}
-    local detected, kill
-    for _, v in getgc(true) do
-        if typeof(v) == "table" then
-            local detectFn = rawget(v, "Detected")
-            local killFn = rawget(v, "Kill")
-            if typeof(detectFn) == "function" and not detected then
-                detected = detectFn
-                local old
-                old = hookfunction(detected, function(action, info, noCrash)
-                    return true
-                end)
-                table.insert(hooked, detected)
-            end
-
-            if rawget(v, "Variables") and rawget(v, "Process") and typeof(killFn) == "function" and not kill then
-                kill = killFn
-                local old
-                old = hookfunction(kill, function(info) end)
-                table.insert(hooked, kill)
-            end
-
-        end
-    end
-
-    local oldInfo
-    oldInfo = hookfunction(getrenv().debug.info, newcclosure(function(...)
-        local levelOrFunc = ...
-        if detected and levelOrFunc == detected then
-            return coroutine.yield(coroutine.running())
-        end
-        return oldInfo(...)
-    end))
-
-    setthreadidentity(7)
-end
-
-do
-
-    local Connection1
-    local Connection2
-
-    local Char__Added_F = function()
-        local L__Character = L_Player['Character']
-
-
-        if Connection1 ~= nil then
-            Connection1:Disconnect()
-        end
-
-        if Connection2 ~= nil then
-            Connection2:Disconnect()
-        end
-
-
-
-        Connection1 = L__Character.ChildAdded:Connect(function(child)
-            if child:IsA('Tool') and child:FindFirstChild('Range') and child:FindFirstChild('Ammo')  then
-                local Range = child:FindFirstChild('Range');
-                local Ammo = child:FindFirstChild('Ammo');
-                local Data = {
-                    ['Range'] = Range.Value;
-                    ['Ammo'] = Ammo.Value;
-                    ['Name'] = child.Name
-                }
-
-                Gundata = Data
-            end
-        end)
-
-        Connection2 = L__Character.ChildRemoved:Connect(function(child)
-
-            if Gundata then
-                Gundata = nil
-            end
-
-        end)
-
-        Signals['On__Character__Added']:Fire()
-    end
-
-    Creat__Con(L_Player['CharacterAdded'], Char__Added_F)
-    Char__Added_F()
-end
-
-
-
-do
-
-
-    local on__Character__Added = function(char)
-        local hrp = char:WaitForChild("HumanoidRootPart", 5)
-        if not hrp then return end
-
-        
-        if hrp:FindFirstChild("ExpandHitbox") then return end
-
-        local hitbox = Instance.new("Part")
-        hitbox.Name = "ExpandHitbox"
-        hitbox.Size = Vector3.new(getgenv()["Snipe"].Triggerbot.HitboxX, getgenv()["Snipe"].Triggerbot.HitboxY, getgenv()["Snipe"].Triggerbot.HitboxZ)
-        hitbox.CFrame = hrp.CFrame 
-        hitbox.Transparency = 1
-        hitbox.Color = Color3.fromRGB(255, 0, 0)
-        hitbox.Material = Enum.Material.ForceField
-        
-        hitbox.CanCollide = false
-        hitbox.CanTouch = false
-        hitbox.CanQuery = false 
-        hitbox.Anchored = false
-        hitbox.Massless = true
-        
-        local weld = Instance.new("WeldConstraint")
-        weld.Part0 = hitbox
-        weld.Part1 = hrp
-        weld.Parent = hitbox
-        table.insert(MainModule.Ignored, hitbox)
-        hitbox.Parent = hrp
-    end
-
-    local on__update__size = function(X,Y,Z)
-        for i = 1, #Players do
-            local Player = Players[i]
-            local char = Player.Character
-            if not char then continue end
-
-            local HRP = char:WaitForChild('HumanoidRootPart', 1)
-            local hitnox = HRP:FindFirstChild("ExpandHitbox")
-
-            hitnox.Size = Vector3.new(X,Y,Z)
-        end
-    end
-
-    local on__update__bl4 = function(X,Y,Z)
-        for i = 1, #Players do
-            local Player = Players[i]
-            local char = Player.Character
-            if not char then continue end
-
-            local HRP = char:WaitForChild('HumanoidRootPart', 1)
-            local hitnox = HRP:FindFirstChild("ExpandHitbox")
-
-            hitnox.CanQuery =  getgenv()["Snipe"].Triggerbot.HitboxEnabled
-
-        end
-    end
-
-
-    for _, Player in ipairs(Users_:GetPlayers()) do
-        if Player ~= game:GetService("Players").LocalPlayer then
-            if Player.Character then
-                task.spawn(on__Character__Added, Player.Character)
-            end
-
-            Player.CharacterAdded:Connect(function(char)
-                task.spawn(on__Character__Added, char)
-            end)
-        end
-    end
-
-    Users_.PlayerAdded:Connect(function(plr)
-        if plr.Character then
-            task.spawn(on__Character__Added, Player.plr.Character)
-        end
-
-        plr.CharacterAdded:Connect(function(char)
-            task.spawn(on__Character__Added, char)
-        end)
-    end)
-
-    Creat__Con(Signals['On__Hitbox__vl31'], on__update__bl4)
-    Creat__Con(Signals['On__Hitbox__tb'], on__update__size)
-end
-
-
-do
-    
-    local RunList = {
-        ['Zombie'] = 'http://www.roblox.com/asset/?id=616163682';
-        ['Mage'] = 'http://www.roblox.com/asset/?id=10921148209';
-        ['Superhero'] = 'http://www.roblox.com/asset/?id=10921291831';
-        ['Robot'] = 'http://www.roblox.com/asset/?id=10921250460';
-        ['Elder'] = 'http://www.roblox.com/asset/?id=10921104374';
-        ['Toy'] = 'http://www.roblox.com/asset/?id=10921306285';
-        ['Cartoony'] = 'http://www.roblox.com/asset/?id=10921076136';
-        ['Ninja'] ='http://www.roblox.com/asset/?id=10921157929';
-        ['Levitation'] ='http://www.roblox.com/asset/?id=10921135644';
-        ['Knight'] ='http://www.roblox.com/asset/?id=10921121197';
-        ['Astronaut'] ='http://www.roblox.com/asset/?id=10921039308';
-        ['Pirate'] ='http://www.roblox.com/asset/?id=750783738';
-        ['Vampire'] ='http://www.roblox.com/asset/?id=10921320299';
-        ['Wicked'] = 'rbxassetid://135515454877967';
-        ['FIFA '] = 'rbxassetid://101650118148392';
-        ['Stylish'] ='http://www.roblox.com/asset/?id=10921276116';
+-->> ('Byppasing A-C') <<--
+
+local Axis = {
+    Combat = {
+
+        SilentAim = {
+
+            Enabled = false;
+            UseFov = false;
+            TargetPart = 'Head';
+            TargetPriority = 'Closest to Cursor';
+            SilentAimMethod = 'Raycast',
+            SelectPriority = 'Free For All',
+
+            NearestPartWhitelist = {
+                "Head", "UpperTorso", "HumanoidRootPart", "LowerTorso",
+                "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm",
+                "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg",
+                "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot" 
+
+            };
+
+
+            WallCheck = false;
+            CrewCheck = false;
+            FriendCheck = false;
+            DownCheck = false;
+            GrabbedCheck = false;
+            NearestPart = false;
+
+            HitChance = 100;
+            FovRadius = 200;
+            MaxDistance = 350;
+
+            FovColor = Color3.fromRGB(87, 240, 146);
+            FilledFov = false;
+            PulseFov = false;
+            FovThickness = 1;
+            PulseAmmout = 8;
+            PulseSpeed = 3;
+            FovTransparency = 1;
+
+            Trace = false;
+            TraceColor = Color3.fromRGB(87, 240, 146);
+            TraceFrom = 'From Cursor';
+            Dot = false;
+            DotColor = Color3.fromRGB(87, 240, 146);
+            DotTransparency = 1;
+            DotRadius = 8;
+            TraceTransparency = 1;
+            TraceThickness = 0;
+
+            Circle = false;
+            CircleColor = Color3.fromRGB(87, 240, 146);
+            CircleRadius = 15;
+            CircleTransparency = 1;
+        },
+
+        Camera = {
+            Enabled = false;
+            UseFov = false;
+            TargetPart = 'HumanoidRootPart';
+            Keybind = 'Toggled',
+            SelectPriority = 'Camera',
+
+
+            WallCheck = false;
+            CrewCheck = false;
+            FriendCheck = false;
+            DownCheck = false;
+            GrabbedCheck = false;
+            NearestPart = false;
+
+            FovRadius = 200;
+            MaxDistance = 350;
+            Smoothness = 100;
+        },
+
+
+
+    },
+
+    Miscs = {
+        WhiteListSettings = {
+            Enabled = false;
+            AutoWhiteListOnJoin = false;
+            PlayersOnWhiteList = {};
+        }
     }
 
-    local IdleList = {
+}
 
-        ['Zombie'] = {
-            Animation1 = 'http://www.roblox.com/asset/?id=10921344533';
-            Animation2 = 'http://www.roblox.com/asset/?id=10921345304';
-        };
+local SilentAim__Fov = Drawing.new('Circle')
+SilentAim__Fov.Color = Color3.fromRGB(255,255,255)
+SilentAim__Fov.Thickness = 1
+SilentAim__Fov.Transparency = 1
+SilentAim__Fov.Radius = 200
+SilentAim__Fov.NumSide = 100
 
-        ['Mage'] = {
-            Animation1 = 'http://www.roblox.com/asset/?id=10921144709';
-            Animation2 = 'http://www.roblox.com/asset/?id=10921145797';
-        };
+local TraceSilentAim = Drawing.new("Line")
+TraceSilentAim.Visible = true
+TraceSilentAim.Color = Color3.fromRGB(255,255,255)
+TraceSilentAim.Thickness = 1
+TraceSilentAim.Transparency = 1
 
-        ['Elder'] = {
-            Animation1 = 'http://www.roblox.com/asset/?id=10921101664';
-            Animation2 = 'http://www.roblox.com/asset/?id=10921102574';
-        };
+local CirclePlayer = Drawing.new('Circle')
+CirclePlayer.Color = Color3.fromRGB(255,255,255)
+CirclePlayer.Thickness = 1
+CirclePlayer.Transparency = 1
+CirclePlayer.Radius = 25
+CirclePlayer.NumSide = 100
 
-        ['Toy'] = {
-            Animation1 = 'http://www.roblox.com/asset/?id=10921301576';
-            Animation2 = 'http://www.roblox.com/asset/?id=10921302207';
-        };
+local ProximityPromptService = game:GetService('ProximityPromptService')
+local UserInputService = game:GetService('UserInputService');
+local Users = game:GetService('Players');
+local ReplicatedStorage = game:GetService('ReplicatedStorage');
+local Camera = workspace.CurrentCamera;
+local RunService = game:GetService('RunService');
 
-        ['Cartoony'] = {
-            Animation1 = 'http://www.roblox.com/asset/?id=10921071918';
-            Animation2 = 'http://www.roblox.com/asset/?id=10921072875';
-        };
 
-        ['Ninja'] = {
-            Animation1 = 'http://www.roblox.com/asset/?id=10921155160';
-            Animation2 = 'http://www.roblox.com/asset/?id=10921155867';
-        };
+local L_Player = Users.LocalPlayer;
+local L_Mouse = L_Player:GetMouse()
 
-        ['Levitation'] = {
-            Animation1 = 'http://www.roblox.com/asset/?id=10921132962';
-            Animation2 = 'http://www.roblox.com/asset/?id=10921133721';
-        };
 
-        ['Knight'] = {
-            Animation1 = 'http://www.roblox.com/asset/?id=10921117521';
-            Animation2 = 'http://www.roblox.com/asset/?id=10921118894';
-        };
 
-        ['Astronaut'] = {
-            Animation1 = 'http://www.roblox.com/asset/?id=10921034824';
-            Animation2 = 'http://www.roblox.com/asset/?id=10921036806';
-        };
 
-        ['Pirate'] = {
-            Animation1 = 'http://www.roblox.com/asset/?id=750781874';
-            Animation2 = 'http://www.roblox.com/asset/?id=750782770';
-        };
 
-        ['Vampire'] = {
-            Animation1 = 'http://www.roblox.com/asset/?id=10921315373';
-            Animation2 = 'http://www.roblox.com/asset/?id=10921316709';
-        };
 
-        ['Robot'] = {
-            Animation1 = 'http://www.roblox.com/asset/?id=10921248039';
-            Animation2 = 'http://www.roblox.com/asset/?id=10921248831';
-        };
+local Script = {
 
-        ['Wicked'] = {
-            Animation1 = 'rbxassetid://92849173543269';
-            Animation2 = 'rbxassetid://132238900951109';
-        };
+    Gun = {
+        PreviousGun = nil,
+        PreviousAmmo = 999,
+        RecentlyShot  = false;
+    };
 
-        ['Superhero'] = {
-            Animation1 = 'http://www.roblox.com/asset/?id=10921288909';
-            Animation2 = 'http://www.roblox.com/asset/?id=10921290167';
-        };
-
-        ['Oldschool'] = {
-            Animation1 = 'http://www.roblox.com/asset/?id=10921230744';
-            Animation2 = 'http://www.roblox.com/asset/?id=10921232093';
-        };
+    TargetSettings = {
+        PreviousHealth = 0;
+        Health = 0;
+        Player = nil;
+        Part = nil;
 
     };
 
-    local JumpList = {
-        ['Mage'] = 'http://www.roblox.com/asset/?id=10921149743';
-        ['Toy'] = 'http://www.roblox.com/asset/?id=10921308158';
-        ['Superhero'] = 'http://www.roblox.com/asset/?id=10921294559';
-        ['Elder'] = 'http://www.roblox.com/asset/?id=10921107367';
-        ['Werewolf'] ='http://www.roblox.com/asset/?id=1083218792';
-        ['Ninja'] ='http://www.roblox.com/asset/?id=10921160088';
-        ['Zombie'] ='http://www.roblox.com/asset/?id=10921351278';
-        ['Levitation'] = 'http://www.roblox.com/asset/?id=10921137402';
-        ['Knight'] ='http://www.roblox.com/asset/?id=10921123517';
-        ['Cartoony'] ='http://www.roblox.com/asset/?id=10921078135';
-        ['Robot'] ='http://www.roblox.com/asset/?id=10921252123';
-        ['Stylish'] ='http://www.roblox.com/asset/?id=10921279832';
-        ['Vampire'] ='http://www.roblox.com/asset/?id=10921322186';
-        ['Astronaut'] ='http://www.roblox.com/asset/?id=10921042494';
-        ['Oldschool'] = 'http://www.roblox.com/asset/?id=10921242013';
+    Players = {};
+    ListPlayersWhitelist = {};
+    Player__Body__Parts = {
+        "Head", "UpperTorso", "HumanoidRootPart", "LowerTorso",
+        "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm",
+        "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg",
+        "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot"
     };
-
-    local FallList = {
-        ['Robot'] = 'http://www.roblox.com/asset/?id=10921251156';
-        ['Stylish'] ='http://www.roblox.com/asset/?id=10921278648';
-        ['Vampire'] = 'http://www.roblox.com/asset/?id=10921321317';
-        ['Astronaut'] = 'http://www.roblox.com/asset/?id=10921040576';
-        ['Mage'] ='http://www.roblox.com/asset/?id=10921148939';
-        ['Toy'] = 'http://www.roblox.com/asset/?id=10921307241';
-        ['Superhero'] ='http://www.roblox.com/asset/?id=10921293373';
-        ['Elder'] = 'http://www.roblox.com/asset/?id=10921105765';
-        ['Werewolf'] = 'http://www.roblox.com/asset/?id=10921337907';
-        ['Ninja'] = 'http://www.roblox.com/asset/?id=10921159222';
-        ['Zombie'] = 'http://www.roblox.com/asset/?id=10921350320';
-        ['Levitation'] = 'http://www.roblox.com/asset/?id=10921136539';
-        ['Knight'] = 'http://www.roblox.com/asset/?id=10921122579';
-        ['Cartoony'] = 'http://www.roblox.com/asset/?id=10921077030';
-        ['Oldschool'] = 'http://www.roblox.com/asset/?id=10921241244';
-    };
-    
-    local WalkList = {
-        ['Robot'] = 'http://www.roblox.com/asset/?id=10921255446';
-        ['Stylish'] ='http://www.roblox.com/asset/?id=10921283326';
-        ['Vampire'] = 'http://www.roblox.com/asset/?id=10921326949';
-        ['Astronaut'] = 'http://www.roblox.com/asset/?id=10921046031';
-        ['Mage'] ='http://www.roblox.com/asset/?id=10921152678';
-        ['Toy'] = 'http://www.roblox.com/asset/?id=10921312010';
-        ['Superhero'] ='http://www.roblox.com/asset/?id=10921298616';
-        ['Elder'] = 'http://www.roblox.com/asset/?id=10921111375';
-        ['Werewolf'] = 'http://www.roblox.com/asset/?id=10921342074';
-        ['Ninja'] = 'http://www.roblox.com/asset/?id=10921162768';
-        ['Zombie'] = 'http://www.roblox.com/asset/?id=10921355261';
-        ['Levitation'] = 'http://www.roblox.com/asset/?id=10921140719';
-        ['Knight'] = 'http://www.roblox.com/asset/?id=10921127095';
-        ['Cartoony'] = 'http://www.roblox.com/asset/?id=10921082452';
-        ['Oldschool'] = 'http://www.roblox.com/asset/?id=10921244891';
-    };
-
-    local on__Character__Added = function()
-        local L_Character = L_Player.Character
-        L_Character:WaitForChild('Animate')
-        task.wait(0.5)
-        if getgenv()["Snipe"].Character.RunAnimation ~= nil then
-            local Animate = L_Character:WaitForChild('Animate');
-            local idlestring = Animate:WaitForChild('run')
-            local FindId = RunList[getgenv()["Snipe"].Character.RunAnimation]
-            idlestring:FindFirstChild('RunAnim').AnimationId = FindId
-        end
-
-        if getgenv()["Snipe"].Character.JumpAnimation ~= nil then
-            local Animate = L_Character:WaitForChild('Animate');
-            local idlestring = Animate:WaitForChild('jump')
-            local FindId = JumpList[getgenv()["Snipe"].Character.JumpAnimation]
-            idlestring:FindFirstChild('JumpAnim').AnimationId = FindId
-        end
-
-        if getgenv()["Snipe"].Character.FallAnimation ~= nil then
-            local Animate = L_Character:WaitForChild('Animate');
-            local idlestring = Animate:WaitForChild('fall')
-            local FindId = FallList[getgenv()["Snipe"].Character.FallAnimation]
-            idlestring:FindFirstChild('FallAnim').AnimationId = FindId
-        end
-
-        if getgenv()["Snipe"].Character.IdleAnimation ~= nil then
-            local Animate = L_Character:WaitForChild('Animate');
-            local idlestring = Animate:WaitForChild('idle')
-            local FindId = IdleList[getgenv()["Snipe"].Character.IdleAnimation]
-            idlestring:FindFirstChild('Animation1').AnimationId = FindId.Animation1
-            idlestring:FindFirstChild('Animation2').AnimationId = FindId.Animation2
-        end
+}
 
 
 
+
+function WallCheck(Part: Instance)
+    if not Part then return false end
+    local RayCastParams = RaycastParams.new()
+    RayCastParams.FilterType = Enum.RaycastFilterType.Exclude
+    RayCastParams.IgnoreWater = true
+    local Character = L_Player.Character
+    if Character then
+        RayCastParams.FilterDescendantsInstances = {Character}
     end
-
-    local on__update__func = function(...)
-        local args = {...}
-        local L_Character = L_Player.Character
-        if args[1] == 'Idle' then
-            if not L_Character then
-                return
-            end
-
-            local Animate = L_Character:WaitForChild('Animate');
-            local idlestring = Animate:WaitForChild('idle')
-            local FindId = IdleList[args[2]]
-            idlestring:FindFirstChild('Animation1').AnimationId = FindId.Animation1
-            idlestring:FindFirstChild('Animation2').AnimationId = FindId.Animation2
-            getgenv()["Snipe"].Character.IdleAnimation = args[2]
-        elseif args[1] == 'Run' then
-            if not L_Character then
-                return
-            end
-            local Animate = L_Character:WaitForChild('Animate');
-            local idlestring = Animate:WaitForChild('run')
-            local FindId = RunList[args[2]]
-            idlestring:FindFirstChild('RunAnim').AnimationId = FindId
-            getgenv()["Snipe"].Character.RunAnimation = args[2]
-        elseif args[1] == 'Jump' then
-            if not L_Character then
-                return
-            end
-
-            local Animate = L_Character:WaitForChild('Animate');
-            local idlestring = Animate:WaitForChild('jump')
-            local FindId = JumpList[args[2]]
-            idlestring:FindFirstChild('JumpAnim').AnimationId = FindId
-            getgenv()["Snipe"].Character.JumpAnimation = args[2]
-        elseif args[1] == 'Fall' then
-            if not L_Character then
-                return
-            end
-
-            local Animate = L_Character:WaitForChild('Animate');
-            local idlestring = Animate:WaitForChild('fall')
-            local FindId = FallList[args[2]]
-            idlestring:FindFirstChild('FallAnim').AnimationId = FindId
-            getgenv()["Snipe"].Character.FallAnimation = args[2]
-        end
+    local CameraPosition = Camera.CFrame.Position
+    local TargetPosition = Part.Position
+    local Direction = TargetPosition - CameraPosition
+    local RayCastResult = workspace:Raycast(CameraPosition, Direction, RayCastParams)
+    if RayCastResult then
+        local HitInstance = RayCastResult.Instance
+        return HitInstance == Part or HitInstance:IsDescendantOf(Part.Parent)
     end
-    Creat__Con(Signals['On__Character__Added'], on__Character__Added)
-    Creat__Con(Signals['OnAnimationChange'], on__update__func)
+    return true
 end
 
-do
-    local on__ItemUpdate = function()
-        local L__Character = L_Player.Character
+function IsPlayerDown(p1 : Player)
 
-        L__Character:WaitForChild('HumanoidRootPart')
-        L__Character:WaitForChild('Head')
-
-
-        local Shred__Character = getgenv()["Snipe"].Character
-        if Shred__Character.Has__FHN and not L__Character:FindFirstChild('FHN') then
-            local Accessory = Instance.new("Accessory")
-            Accessory.AttachmentPoint = CFrame.new(0, -0.8, 0)
-            Accessory.Name = 'FHN'
-            local Handle = Instance.new("Part", Accessory)
-            Handle.Name = "Handle"
-            Handle.Size = Vector3.new(3.499, 2.504, 0.688)
-
-            local Mesh = Instance.new("SpecialMesh")
-            Mesh.MeshType = Enum.MeshType.FileMesh
-            Mesh.MeshId = "http://www.roblox.com/asset/?id=215680403"
-            Mesh.TextureId = "http://www.roblox.com/asset/?id=215676264"
-            Mesh.Parent = Handle
-
-            local Attach = Instance.new("Attachment")
-            Attach.Name = "HatAttachment"
-            Attach.Position = Vector3.new(0, -0.7, 0)
-            Attach.Parent = Handle
-
-            local Fire = Instance.new('Fire', Handle)
-            Fire.Color = Color3.fromRGB(236, 139, 70)
-            Fire.Heat = 8
-            Fire.SecondaryColor = Color3.fromRGB(139, 80, 55)
-            Fire.Size = 3
-            Fire.TimeScale = 1
-
-            Accessory.Parent = L__Character
-
-            local RigidConstraint = Instance.new("RigidConstraint", Handle)
-            RigidConstraint.Attachment0 = Attach
-            RigidConstraint.Attachment1 = L__Character:FindFirstChild('Head'):FindFirstChild('HatAttachment')
-        elseif Shred__Character.Has__FHN == false and L__Character:FindFirstChild('FHN') then
-            if L__Character:FindFirstChild('FHN') then
-                L__Character:FindFirstChild('FHN').Parent = nil
-            end
-        end
-
-        if Shred__Character.Has__FHO and not L__Character:FindFirstChild('FHO') then
-            local Accessory = Instance.new("Accessory")
-            Accessory.AttachmentPoint = CFrame.new(0, -0.8, 0)
-            Accessory.Name = 'FHO'
-
-            local Handle = Instance.new("Part", Accessory)
-            Handle.Name = "Handle"
-            Handle.Size = Vector3.new(3.499, 2.504, 0.688)
-
-            local Mesh = Instance.new("SpecialMesh")
-            Mesh.MeshType = Enum.MeshType.FileMesh
-            Mesh.MeshId = "http://www.roblox.com/asset/?id=215680403"
-            Mesh.TextureId = "rbxassetid://658646189"
-            Mesh.Parent = Handle
-
-            local Attach = Instance.new("Attachment")
-            Attach.Name = "HatAttachment"
-            Attach.Position = Vector3.new(0, -0.7, 0)
-            Attach.Parent = Handle
-
-            local Fire = Instance.new('Fire', Handle)
-            Fire.Color = Color3.fromRGB(52, 206, 236)
-            Fire.Heat = 8
-            Fire.SecondaryColor = Color3.fromRGB(2, 64, 139)
-            Fire.Size = 3
-            Fire.TimeScale = 1
-
-            Accessory.Parent = L__Character
-
-            local RigidConstraint = Instance.new("RigidConstraint", Handle)
-            RigidConstraint.Attachment0 = Attach
-            RigidConstraint.Attachment1 = L__Character:FindFirstChild('Head'):FindFirstChild('HatAttachment')
-        elseif Shred__Character.Has__FHO == false and L__Character:FindFirstChild('FHO') then
-            if L__Character:FindFirstChild('FHO') then
-                L__Character:FindFirstChild('FHO').Parent = nil
-            end
-        end
-
-        if Shred__Character.Has__PHO and not L__Character:FindFirstChild('PHO') then
-            local Accessory = Instance.new("Accessory")
-            Accessory.AttachmentPoint = CFrame.new(0, -0.8, 0)
-            Accessory.Name = 'PHO'
-
-            local Handle = Instance.new("Part", Accessory)
-            Handle.Name = "Handle"
-            Handle.Size = Vector3.new(3.499, 2.504, 0.688)
-
-            local Mesh = Instance.new("SpecialMesh")
-            Mesh.MeshType = Enum.MeshType.FileMesh
-            Mesh.MeshId = "http://www.roblox.com/asset/?id=215680403"
-            Mesh.TextureId = "rbxassetid://1744057070"
-            Mesh.Parent = Handle
-
-            local Attach = Instance.new("Attachment")
-            Attach.Name = "HatAttachment"
-            Attach.Position = Vector3.new(0, -0.7, 0)
-            Attach.Parent = Handle
-
-            local Fire = Instance.new('Fire', Handle)
-            Fire.Color = Color3.fromRGB(91, 222, 68)
-            Fire.Heat = 8
-            Fire.SecondaryColor = Color3.fromRGB(0, 85, 0)
-            Fire.Size = 3
-            Fire.TimeScale = 1
-
-            Accessory.Parent = L__Character
-
-            local RigidConstraint = Instance.new("RigidConstraint", Handle)
-            RigidConstraint.Attachment0 = Attach
-            RigidConstraint.Attachment1 = L__Character:FindFirstChild('Head'):FindFirstChild('HatAttachment')
-        elseif Shred__Character.Has__PHO == false and L__Character:FindFirstChild('PHO') then
-            if L__Character:FindFirstChild('PHO') then
-                L__Character:FindFirstChild('PHO').Parent = nil
-            end
-        end
+    if not p1:FindFirstChild('BodyEffects') then
+        return false
     end
-    Creat__Con(Signals['On__Character__Added'], on__ItemUpdate)
-    Creat__Con(Signals['LarpItemVl3'], on__ItemUpdate)
+
+    if  p1:FindFirstChild('BodyEffects')['K.O'].Value then
+        return true
+    end
+
+    return false
 end
 
 
-do
+function IsGrabbed(Player : Player)
 
-    local on__character__uip = function()
-        if not getgenv()["Snipe"].Character.LoadoutEnabled then return end
 
-        for key, value in next, getgenv()["Snipe"].Character.LoadoutGunList do
-            local backpack = L_Player.Backpack
-            if backpack:WaitForChild(key) then
-                local gun = backpack[key]
-                gun.Parent = L_Player.Character
-            end
-        end
 
-    end
 
-    local on__Call__NV1__UP = function()
-        if not getgenv()["Snipe"].Character.LoadoutEnabled then return end
-        loadout__Query = true
-        task.spawn(function()
-            if L_Player.Character then
-                local Hum = L_Player.Character.Humanoid
-                Hum:UnequipTools()
-            end
-        end)
 
-        for key, value in next, getgenv()["Snipe"].Character.LoadoutGunList do
-            local backpack = L_Player.Backpack
-            if backpack[key] then
-                local gun = backpack[key]
-                gun.Parent = L_Player.Character
-            end
-        end
-
-        task.wait(0.5)
-        loadout__Query = false
-    end
-
-    Creat__Con(Signals['On__Character__Added'], on__character__uip)
-    Creat__Con(Signals['OnLoadOutListUpdate'], on__Call__NV1__UP)
 end
 
-local Get__Closet__Player = function()
-    local Fov__Silent = getgenv()["Snipe"].SilentAim.SilentFov
-    local TargetNext
-    local MouseLocation = UserInputService__:GetMouseLocation()
 
-    local MyChar = L_Player.Character
-    if not MyChar then return nil end
-    local MyHRP = MyChar:FindFirstChild("HumanoidRootPart")
-    if not MyHRP then return nil end
+function IsFriendWith(p1 : Player, p2 : Player)
 
-    for i = 1, #Players do
-        local Player = Players[i]
+    if not (p1 or p2) then
+        return false
+    end
+
+    if p1:IsFriendsWithAsync(p2.UserId) and p2:IsFriendsWithAsync(p1.UserId) then
+        return true
+    end
+
+    return false
+end
+
+function OnPlayerAdded(plr: Player)
+
+    if plr == L_Player then
+        return
+    end
+
+    if not table.find(Script.Players, plr) then
+        table.insert(Script.Players, plr)
+    end
+
+end
+
+function OnPlayerRemove(p1 : Player)
+
+    if p1 == L_Player then
+        return
+    end
+
+    if table.find(Script.Players, p1) then
+        table.remove(Script.Players, table.find(Script.Players, p1))
+    end
+
+end
+
+
+
+function GetClosetTarget()
+    local Target
+    local PlayerTarget 
+    local ClosetPosition = Axis.Combat.SilentAim.FovRadius
+    local MouseLocation = UserInputService:GetMouseLocation()
+
+    for i = 1, #Script.Players do
+        local Player = Script.Players[i]
         local Char = Player.Character
         if not Char then continue end
 
+        local hrp = Char:FindFirstChild("HumanoidRootPart")
+        local head = Char:FindFirstChild("Head")
 
-        local Bodyeffects = Char:FindFirstChild("BodyEffects")
-        if Bodyeffects and Bodyeffects:FindFirstChild("K.O") and Bodyeffects['K.O'].Value and getgenv()["Snipe"].SilentAim.DownCheck == true then
+        if not hrp or not head then continue end
+
+        if Axis.Combat.SilentAim.DownCheck and IsPlayerDown(Player)  then
+            continue
+        end
+        if Axis.Combat.SilentAim.WallCheck and not WallCheck(head) then
+            continue
+        end
+        if Axis.Combat.SilentAim.FriendCheck and IsFriendWith(L_Player, Player) then
+            continue
+        end
+        
+        if Axis.Miscs.WhiteListSettings.Enabled and Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[Player.Name] then
             continue
         end
 
-        local hrp = Char:FindFirstChild("HumanoidRootPart")
-        local head = Char:FindFirstChild("Head")
-        if not hrp or not head then continue end
+        if Axis.Combat.SilentAim.NearestPart then
+            for _, partName in ipairs(Axis.Combat.SilentAim.NearestPartWhitelist) do
+                local part = Char:FindFirstChild(partName)
+                if not part then continue end
 
-        local Vector, OnScreen = Camera__:WorldToViewportPoint(hrp.Position)
-        if not OnScreen then continue end
+                local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                if not onScreen then continue end
 
-        local Distance = (MouseLocation - Vector2.new(Vector.X, Vector.Y)).Magnitude
-        if Distance >= Fov__Silent then continue end
-
-        if getgenv()["Snipe"].SilentAim.WallCheck == true then
-            local amount = Camera__:GetPartsObscuringTarget(
-                {MyHRP.Position, hrp.Position}, 
-                {MyChar, Char}
-            )
-
-            if #amount == 0 then
-                TargetNext = head
-                Fov__Silent = Distance
+                local dist = (MouseLocation - Vector2.new(pos.X, pos.Y)).Magnitude
+                if dist < ClosetPosition then
+                    ClosetPosition = dist
+                    Target = part
+                    PlayerTarget = Player
+                end
             end
-
         else
-            TargetNext = head
-            Fov__Silent = Distance
+            local targetPartName = Axis.Combat.SilentAim.TargetPart
+            local targetPart = Char:FindFirstChild(targetPartName)
+            if not targetPart then continue end
+
+            local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+            if not onScreen then continue end
+
+            local dist = (MouseLocation - Vector2.new(pos.X, pos.Y)).Magnitude
+            if dist < ClosetPosition then
+                ClosetPosition = dist
+                Target = targetPart
+                PlayerTarget = Player
+            end
         end
     end
 
-    return TargetNext
-end 
+    return Target, PlayerTarget
+end
+
+--[[Script.Functions.WallCheck = function(Part: any)
+    local RayCastParams = RaycastParams.new()
+    RayCastParams.FilterType = Enum.RaycastFilterType.Exclude
+    RayCastParams.IgnoreWater = true
+    RayCastParams.FilterDescendantsInstances = Script.AzureIgnoreFolder:GetChildren()
+
+    local CameraPosition = Camera.CFrame.Position
+    local Direction = (Part.Position - CameraPosition).Unit
+    local RayCastResult = workspace:Raycast(CameraPosition, Direction * 10000, RayCastParams)
+
+    return RayCastResult.Instance and RayCastResult.Instance == Part
+end]]--
 
 
-local rayParams = RaycastParams.new()
-rayParams.FilterType = Enum.RaycastFilterType.Exclude
+local dt__Pulse = 0;
+RunService.Heartbeat:Connect(function(deltaTime)
+    if (Axis.Combat.SilentAim.UseFov) then
 
-
-do
-
-    RunService_['Heartbeat']:Connect(function(dt)
-
-        if getgenv()["Snipe"].SilentAim.SilentAimEnabled and getgenv()["Snipe"].SilentAim.SilentAimMode == 'FreeForAll' then
-            getgenv()["Snipe"].SilentAim.SelectionAim = Get__Closet__Player()
+        if not SilentAim__Fov.Visible then
+            SilentAim__Fov.Visible = true
         end
 
+        local MouseLocation = UserInputService:GetMouseLocation()
+        
+        SilentAim__Fov.Transparency = Axis.Combat.SilentAim.FovTransparency
+        SilentAim__Fov.Position = Vector2.new(MouseLocation.X, MouseLocation.Y)
+        SilentAim__Fov.Color = Axis.Combat.SilentAim.FovColor
+        SilentAim__Fov.Thickness = Axis.Combat.SilentAim.FovThickness
+        SilentAim__Fov.Filled = Axis.Combat.SilentAim.FilledFov
+
+        if (Axis.Combat.SilentAim.PulseFov) then
+            local Speed = Axis.Combat.SilentAim.PulseSpeed
+            local Amount = Axis.Combat.SilentAim.PulseAmmout
+            local BaseFov = Axis.Combat.SilentAim.FovRadius
+
+            dt__Pulse = dt__Pulse + (deltaTime * Speed)
+            SilentAim__Fov.Radius = BaseFov + (math.cos(dt__Pulse) * Amount)
+        else
+            SilentAim__Fov.Radius = Axis.Combat.SilentAim.FovRadius
+        end
+
+    else
+        if SilentAim__Fov.Visible then
+            SilentAim__Fov.Visible = false
+        end
+    end
+
+    if (Axis.Combat.SilentAim.Enabled and Axis.Combat.SilentAim.SelectPriority == 'Free For All') then
+        local Part : BasePart, Pl1x : Player = GetClosetTarget()
+        Script.TargetSettings.Player = Pl1x
+        Script.TargetSettings.Part = Part
+    end
+
+    if (Axis.Combat.SilentAim.Trace) then
+
+        TraceSilentAim.Color = Axis.Combat.SilentAim.TraceColor
+        TraceSilentAim.Thickness = Axis.Combat.SilentAim.TraceThickness
+        TraceSilentAim.Transparency = Axis.Combat.SilentAim.TraceTransparency
 
 
-        if getgenv()["Snipe"].SilentAim.Visual.TraceEnabled then
-            if getgenv()["Snipe"].SilentAim.SelectionAim then
-                local b135, xc31 = Camera__:WorldToViewportPoint(getgenv()["Snipe"].SilentAim.SelectionAim.Position)
-                if xc31 then
-                    TraceSilentAim.Visible = true
-                    TraceSilentAim.From = Vector2.new(L_Mouse.X, L_Mouse.Y + 55)
-                    TraceSilentAim.To = Vector2.new(b135.X, b135.Y)
-                else
-                    TraceSilentAim.Visible = false
-                end
+        if Script.TargetSettings.Part then
+            local Position, onScreen = Camera:WorldToViewportPoint(Script.TargetSettings.Part.Position)
+            if onScreen then
+                local MouseLocation = UserInputService:GetMouseLocation()
+                TraceSilentAim.Visible = true
+                TraceSilentAim.From = Vector2.new(MouseLocation.X, MouseLocation.Y)
+                TraceSilentAim.To = Vector2.new(Position.X, Position.Y)
             else
-
-                TraceSilentAim.Visible = false 
+                TraceSilentAim.Visible = false
             end
-        end
-
-
-        if getgenv()["Snipe"].SilentAim.FovEnabled then
-            FovSilentAim.Position = UserInputService__:GetMouseLocation()
-            FovSilentAim.Visible = true
-            FovSilentAim.Color = getgenv()["Snipe"].SilentAim.FovColor
-            FovSilentAim.Radius = getgenv()["Snipe"].SilentAim.SilentFov
         else
-            FovSilentAim.Visible = false
+            TraceSilentAim.Visible = false
         end
+    end
 
-        if getgenv()["Snipe"].Triggerbot.Holding and getgenv()["Snipe"].Triggerbot.TriggerbotEnabled and L_Player.Character then
-            local Tool = L_Player.Character:FindFirstChildOfClass('Tool')
-            if Tool and table.find(WeaponNameList, Tool.Name) and tick() - Last__Shoot__tb >= getgenv()["Snipe"].Triggerbot.TriggerbotFireRate then
-                local mouse = UserInputService__:GetMouseLocation()
-		        local Raycast = Camera__:ViewportPointToRay(mouse.X, mouse.Y);
-                rayParams.FilterDescendantsInstances = {L_Player.Character}
-                local RaycastResult = workspace:Raycast(Raycast.Origin, Raycast.Direction * 500, rayParams);
-                if RaycastResult and RaycastResult.Instance and RaycastResult.Instance:IsDescendantOf(game.workspace.Players) then
-                    Last__Shoot__tb = tick()
-                    Tool:Activate()
-                end
+    if (Axis.Combat.SilentAim.Circle) then
+        CirclePlayer.Radius = Axis.Combat.SilentAim.CircleRadius
+        CirclePlayer.Transparency = Axis.Combat.SilentAim.CircleTransparency
+
+        if Script.TargetSettings.Part then
+            local Position, onScreen = Camera:WorldToViewportPoint(Script.TargetSettings.Part.Position)
+            if onScreen then
+                CirclePlayer.Visible = true
+                CirclePlayer.Position = Vector2.new(Position.X, Position.Y)
+            else
+                CirclePlayer.Visible = false
             end
 
+        else
+            CirclePlayer.Visible = false
         end
 
-
-    end)
-end
-
-
-local Hit__Chance = function()
-    local currentTime = tick()
-
-    if currentTime - last__chance__shoot > 0.05 then
-        last__chance__shoot = currentTime
-        local chance = getgenv()["Snipe"] and getgenv()["Snipe"].SilentAim and getgenv()["Snipe"].SilentAim.HitChance or 100
-        last__chance__hit = math.random(1, 100) <= chance
+    else
+        CirclePlayer.Visible = false
     end
-    
-    return last__chance__hit
-end
+end)
 
 local oldGetAim = GunHandler.GetAim
 GunHandler.GetAim = function(p17, ...)
-    local settings = getgenv().Snipe and getgenv().Snipe.SilentAim
+    if Axis.Combat.SilentAim.Enabled and Script.TargetSettings.Part then
+        local NewHookPosition = Script.TargetSettings.Part.Position
+        local origin = p17
+        local direction = (NewHookPosition - origin).Unit
+        local distance = (NewHookPosition - origin).Magnitude
+        
+        return direction, distance
+    end
     
-    if settings and settings.SilentAimEnabled and settings.SelectionAim then
+    --[[if settings and settings.SilentAimEnabled and settings.SelectionAim then
         if Hit__Chance() then
             local target = settings.SelectionAim
             if target and target:IsA("BasePart") then
@@ -944,74 +438,9 @@ GunHandler.GetAim = function(p17, ...)
                 return direction, distance
             end
         end
-    end
+    end]]--
     
     return oldGetAim(p17, ...)
-end
-
-
---[[local hookgame
-hookgame = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-    local args = {...}
-    local method = getnamecallmethod()
-    if not checkcaller() and method == "Raycast" and getgenv()["Snipe"].SilentAim.SilentAimEnabled then
-        if getgenv()["Snipe"].SilentAim.SelectionAim then
-            local Origin = args[1]
-            local Position = getgenv()["Snipe"].SilentAim.SelectionAim.Position
-            local GetPosition = NewRaycast(Origin, Position)
-
-            if GetPosition and GetPosition ~= nil then
-                args[2] = GetPosition
-            end
-
-            if args[3] and typeof(args[3]) == "RaycastParams" then
-                local filter = args[3].FilterDescendantsInstances
-                table.insert(filter, workspace.Ignored)
-                args[3].FilterDescendantsInstances = filter
-            end
-
-            return hookgame(self, unpack(args))
-        end
-    end
-
-    return hookgame(self, ...)
-end))]]--
-
---[[local old
-old = hookmetamethod(game, "__index", function(self, property)
-    if self == L_Mouse and not checkcaller() then
-        if property == "Target" or property == "target" then
-            if getgenv()["Snipe"].SilentAim.SelectionAim then
-                return getgenv()["Snipe"].SilentAim.SelectionAim
-            end
-        end
-        if property == "Hit" or property == "hit" then
-            if getgenv()["Snipe"].SilentAim.SelectionAim then
-                return getgenv()["Snipe"].SilentAim.SelectionAim.CFrame
-            end
-        end
-    end
-    return old(self, property)
-end)]]--
-
-do
-    for i, Player in pairs(Users_:GetPlayers()) do
-        if Player == L_Player then
-            continue
-        end
-        table.insert(Players, Player)
-    end
-
-    Users_.PlayerAdded:Connect(function(plr)
-        table.insert(Players, plr)
-    end)
-
-    Users_.PlayerRemoving:Connect(function(plr)
-        local index = table.find(Players,plr)
-        if index then
-            table.remove(Players, index)
-        end
-    end)
 end
 
 
@@ -1020,531 +449,728 @@ local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
 local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
 local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 
-Library.ShowCustomCursor = false
-
+Library.AccentColor = Color3.fromRGB(87, 240, 146);
 
 local Window = Library:CreateWindow({
     Title = 'Axis',
     Center = true,
     AutoShow = true,
-    TabPadding = 7,
-    MenuFadeTime = 0.2,
-    ShowCustomCursor = false,
+    TabPadding = 8,
+    MenuFadeTime = 0.2;
 })
 
+
+
 local Tabs = {
-    Character = Window:AddTab('Character'),
-    SilentAim = Window:AddTab('Silent Aim'),
-    Triggerbot = Window:AddTab('Triggerbot'),
-    ['UI Settings'] = Window:AddTab('UI Settings'),
+    Combat = Window:AddTab('Combat'),
+    Visuals = Window:AddTab('Visuals'),
+    Miscs = Window:AddTab('Miscs'),
+    ['Settings'] = Window:AddTab('Settings'),
 }
 
 
-do
-    local FakeItems = Tabs.Character:AddLeftGroupbox('Larp Items')
-    local Animations = Tabs.Character:AddLeftGroupbox('Animations')
-    local Macro = Tabs.Character:AddRightGroupbox('Macro')
-    local Loadout = Tabs.Character:AddRightGroupbox('Loadout')
+local SilentAimTab = Tabs.Combat:AddLeftGroupbox('Silent aim')
+local SilentAimVisual = Tabs.Combat:AddLeftGroupbox('Silent aim Visual')
+local CameraTab = Tabs.Combat:AddRightGroupbox('Camera')
 
-    FakeItems:AddToggle('FHO', {
-        Text = 'Frozen Horns of the Frigid Planes';
-        Default = false;
-    });
 
-    FakeItems:AddToggle('PHO', {
-        Text = 'Poisoned Horns of the Toxic Wasteland';
-        Default = false;
-    })
+local whitelisttab = Tabs.Miscs:AddLeftGroupbox('Whitelist');
 
-    FakeItems:AddToggle('FHN', {
-        Text = 'Fiery Horns of the Netherworld';
-        Default = false;
-    })
+SilentAimTab:AddToggle('SilentAimEnabled', {
+    Text = 'Enabled';
+    Default = false;
 
-    Animations:AddDropdown('Idle', {
-        Values = { 'Zombie','Mage', 'Superhero', 'Toy', 'Robot', 'Ninja', 'Cartoony', 'Oldschool', 'Pirate', 'Vampire', 'Elder','Knight', 'Wicked', 'Astronaut'},
-        Default = 0,
-        Multi = false,
-        Text = 'Idle Animations',
-        Callback = function(Value)
-            Signals['OnAnimationChange']:Fire('Idle', Value)
+    Callback = function(vf)
+        Axis.Combat.SilentAim.Enabled = vf
+    end
+}):AddKeyPicker('KeySilent', {
+    Default = 'Fn',
+    SyncToggleState = false,
+    Mode = 'Toggle',
+
+    Text = '',
+    NoUI = false,
+
+    Callback = function(Value)
+        print(Value)
+    end,
+
+    ChangedCallback = function(New)
+        
+    end
+});
+
+SilentAimTab:AddToggle('UseFov', {
+    Text = 'Use Fov';
+    Default = false;
+
+    Callback = function(vf)
+        print(vf)
+        Axis.Combat.SilentAim.UseFov = vf
+    end
+});
+
+SilentAimTab:AddToggle('WallCheck', {
+    Text = 'Wall Check';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.WallCheck = vf
+    end
+});
+
+SilentAimTab:AddToggle('CrewCheck', {
+    Text = 'Crew Check';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.CrewCheck = vf
+    end
+});
+
+SilentAimTab:AddToggle('FriendCheck', {
+    Text = 'Friend Check';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.FriendCheck = vf
+    end
+});
+
+SilentAimTab:AddToggle('DownCheck', {
+    Text = 'Down Check';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.DownCheck = vf
+    end
+});
+
+SilentAimTab:AddToggle('NearestPart', {
+    Text = 'Nearest Part';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.NearestPart = vf
+    end
+});
+
+SilentAimTab:AddToggle('GrabbedCheck', {
+    Text = 'Grabbed Check';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.GrabbedCheck = vf
+    end
+});
+
+SilentAimTab:AddDropdown('TargetPart', {
+
+    Values = { 'Head', 'UpperTorso', 'HumanoidRootPart', 'LowerTorso', 'LeftUpperArm', 'RightUpperArm', 'LeftLowerArm', 'RightLowerArm', 'LeftHand', 'RightHand', 'LeftUpperLeg', 'RightUpperLeg', 'LeftLowerLeg', 'RightLowerLeg', 'LeftFoot', 'RightFoot' },
+    Default = 1,
+    Multi = false,
+    Text = 'Part Priority',
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.TargetPart = Value
+    end
+});
+
+SilentAimTab:AddDropdown('TargetPriority', {
+
+    Values = { 'Closest to Mouse', 'Closest to Center' },
+    Default = 1,
+    Multi = false,
+    Text = 'Target Priority',
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.TargetPriority = Value
+    end
+});
+
+SilentAimTab:AddDropdown('SelectPriority', {
+
+    Values = { 'Free For All', 'Toggled' },
+    Default = 1,
+    Multi = false,
+    Text = 'Select Priority',
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.SelectPriority = Value
+    end
+});
+
+SilentAimTab:AddDropdown('NearestPartWhitelist', {
+
+    Values = { 
+        "Head", "UpperTorso", "HumanoidRootPart", "LowerTorso",
+        "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm",
+        "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg",
+        "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot" 
+    },
+    Default = {         
+        "Head", "UpperTorso", "HumanoidRootPart", "LowerTorso",
+        "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm",
+        "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg",
+        "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot" 
+    },
+    Multi = true,
+    Text = 'Nearest Part Whitelist',
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.NearestPartWhitelist = {}
+        for index, value in next, Value do
+            table.insert(Axis.Combat.SilentAim.NearestPartWhitelist, index)
         end
-    })
+    end
+});
 
-    Animations:AddDropdown('Jump', {
-        Values = { 'Zombie','Mage', 'Superhero', 'Toy', 'Robot', 'Ninja', 'Oldschool', 'Cartoony', 'Pirate', 'Vampire', 'Elder','Knight', 'Wicked', 'Astronaut'},
-        Default = 0,
-        Multi = false,
-        Text = 'Jump Animations',
-        Callback = function(Value)
-            Signals['OnAnimationChange']:Fire('Jump', Value)
+SilentAimTab:AddSlider('HitChance', {
+    Text = 'Hit Chance',
+    Default = 100,
+    Min = 0,
+    Max = 100,
+    Rounding = 0,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.HitChance = Value
+    end
+});
+
+SilentAimTab:AddSlider('FovRadius', {
+    Text = 'Fov Radius',
+    Default = 200,
+    Min = 0,
+    Max = 500,
+    Rounding = 0,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.FovRadius = Value
+    end
+});
+
+SilentAimTab:AddSlider('MaxDistance', {
+    Text = 'Max Distance',
+    Default = 350,
+    Min = 0,
+    Max = 10000,
+    Rounding = 0,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.MaxDistance = Value
+    end
+});
+
+CameraTab:AddToggle('CameraEnabled', {
+    Text = 'Enabled';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.Camera.Enabled = vf
+    end
+});
+
+CameraTab:AddToggle('UseFovCamera', {
+    Text = 'Use Fov';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.Camera.UseFov = vf
+    end
+});
+
+CameraTab:AddToggle('WallCheckCamera', {
+    Text = 'Wall Check';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.Camera.WallCheck = vf
+    end
+});
+
+CameraTab:AddToggle('CrewCheckCamera', {
+    Text = 'Crew Check';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.Camera.CrewCheck = vf
+    end
+});
+
+CameraTab:AddToggle('FriendCheckCamera', {
+    Text = 'Friend Check';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.Camera.FriendCheck = vf
+    end
+});
+
+CameraTab:AddToggle('DownCheckCamera', {
+    Text = 'Down Check';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.Camera.DownCheck = vf
+    end
+});
+
+CameraTab:AddToggle('NearestPartCamera', {
+    Text = 'Nearest Part';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.Camera.NearestPart = vf
+    end
+});
+
+CameraTab:AddToggle('GrabbedCheckCamera', {
+    Text = 'Grabbed Check';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.Camera.GrabbedCheck = vf
+    end
+});
+
+CameraTab:AddDropdown('TargetPartCamera', {
+
+    Values = { 'Head', 'UpperTorso', 'HumanoidRootPart', 'LowerTorso', 'LeftUpperArm', 'RightUpperArm', 'LeftLowerArm', 'RightLowerArm', 'LeftHand', 'RightHand', 'LeftUpperLeg', 'RightUpperLeg', 'LeftLowerLeg', 'RightLowerLeg', 'LeftFoot', 'RightFoot' },
+    Default = 3,
+    Multi = false,
+    Text = 'Part Priority',
+
+    Callback = function(Value)
+        Axis.Combat.Camera.TargetPart = Value
+    end
+});
+
+CameraTab:AddDropdown('KeybindPriorityCamera', {
+
+    Values = { 'Hold', 'Toggled' },
+    Default = 2,
+    Multi = false,
+    Text = 'Keybind Priority',
+
+    Callback = function(Value)
+        Axis.Combat.Camera.Keybind = Value
+    end
+});
+
+CameraTab:AddDropdown('SelectPriorityCamera', {
+
+    Values = { 'Camera', 'Mouse' },
+    Default = 1,
+    Multi = false,
+    Text = 'Select Priority',
+
+    Callback = function(Value)
+        Axis.Combat.Camera.SelectPriority = Value
+    end
+});
+
+CameraTab:AddSlider('Smoothness', {
+    Text = 'Smoothness',
+    Default = 100,
+    Min = 0,
+    Max = 100,
+    Rounding = 0,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.Camera.Smoothness = Value
+    end
+});
+
+CameraTab:AddSlider('FovRadiusCamera', {
+    Text = 'Fov Radius',
+    Default = 200,
+    Min = 0,
+    Max = 500,
+    Rounding = 0,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.Camera.FovRadius = Value
+    end
+});
+
+CameraTab:AddSlider('MaxDistanceCamera', {
+    Text = 'Max Distance',
+    Default = 350,
+    Min = 0,
+    Max = 10000,
+    Rounding = 0,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.Camera.MaxDistance = Value
+    end
+});
+
+SilentAimVisual:AddLabel('Fov Color'):AddColorPicker('ColorPicker', {
+    Default = Color3.fromRGB(87, 240, 146),
+    Title = 'Choose Fov Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.FovColor = Value
+    end
+})
+
+SilentAimVisual:AddToggle('FilledFov', {
+    Text = 'Filled Fov';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.FilledFov = vf
+    end
+})
+
+SilentAimVisual:AddToggle('PulseFov', {
+    Text = 'Pulse Fov';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.PulseFov = vf
+    end
+})
+
+SilentAimVisual:AddSlider('Thickness', {
+    Text = 'Thickness',
+    Default = 1,
+    Min = 0,
+    Max = 8,
+    Rounding = 0,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.FovThickness = Value
+    end
+});
+
+SilentAimVisual:AddSlider('Pulse', {
+    Text = 'Pulse Ammout',
+    Default = 8,
+    Min = 0,
+    Max = 30,
+    Rounding = 0,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.PulseAmmout = Value
+    end
+});
+
+SilentAimVisual:AddSlider('PulseSpeed', {
+    Text = 'Pulse Speed',
+    Default = 3,
+    Min = 0,
+    Max = 10,
+    Rounding = 0,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.PulseSpeed = Value
+    end
+});
+
+SilentAimVisual:AddSlider('FovTransparency', {
+    Text = 'Fov Transparency',
+    Default = 1,
+    Min = 0,
+    Max = 1,
+    Rounding = 1,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.FovTransparency = Value
+    end
+});
+
+SilentAimVisual:AddToggle('Trace', {
+    Text = 'Trace';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.Trace = vf
+    end
+}):AddColorPicker('TraceColor', {
+    Default = Color3.fromRGB(87, 240, 146),
+    Title = 'Choose Trace Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.TraceColor = Value
+    end
+})
+
+SilentAimVisual:AddToggle('Dot', {
+    Text = 'Dot';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.Dot = vf
+    end
+}):AddColorPicker('DotColor', {
+    Default = Color3.fromRGB(87, 240, 146),
+    Title = 'Choose Dot Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.DotColor = Value
+    end
+})
+
+SilentAimVisual:AddToggle('Circle', {
+    Text = 'Circle';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.Circle = vf
+    end
+}):AddColorPicker('Circle', {
+    Default = Color3.fromRGB(87, 240, 146),
+    Title = 'Choose Circle Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.CircleColor = Value
+    end
+})
+
+
+SilentAimVisual:AddSlider('TraceTransparency', {
+    Text = 'Trace Transparency',
+    Default = 1,
+    Min = 0,
+    Max = 1,
+    Rounding = 1,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.TraceTransparency = Value
+    end
+});
+
+SilentAimVisual:AddSlider('TraceThickness', {
+    Text = 'Trace Thickness',
+    Default = 1,
+    Min = 0,
+    Max = 8,
+    Rounding = 1,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.TraceThickness = Value
+    end
+});
+
+SilentAimVisual:AddSlider('DotRadius', {
+    Text = 'Dot Radius',
+    Default = 8,
+    Min = 0,
+    Max = 28,
+    Rounding = 1,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.DotRadius = Value
+    end
+});
+
+
+SilentAimVisual:AddSlider('DotTransparency', {
+    Text = 'Dot Transparency',
+    Default = 1,
+    Min = 0,
+    Max = 1,
+    Rounding = 1,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.DotTransparency = Value
+    end
+});
+
+SilentAimVisual:AddSlider('Circle', {
+    Text = 'Circle Radius',
+    Default = 15,
+    Min = 0,
+    Max = 50,
+    Rounding = 1,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.CircleRadius = Value
+    end
+});
+
+SilentAimVisual:AddSlider('CircleTransparency', {
+    Text = 'Circle Transparency',
+    Default = 1,
+    Min = 0,
+    Max = 1,
+    Rounding = 1,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.CircleTransparency = Value
+    end
+});
+
+SilentAimVisual:AddDropdown('Trace From', {
+
+    Values = { 'From Cursor', 'From Center ' , 'From Gun'},
+    Default = 1,
+    Multi = false,
+    Text = 'Trace Priority',
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.TraceFrom = Value
+    end
+});
+
+whitelisttab:AddToggle('WLEnabled', {
+    Text = 'Enabled';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Miscs.WhiteListSettings.Enabled = vf
+    end
+});
+
+whitelisttab:AddToggle('AutoOnPlayerJoin', {
+    Text = 'Auto Whitelist On Join';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Miscs.WhiteListSettings.AutoWhiteListOnJoin = vf
+    end
+});
+
+whitelisttab:AddDropdown('PlayerList', {
+    Values = { },
+    Default = {},
+    Multi = true,
+    Text = 'Whitelist Players',
+
+    Callback = function(Value)
+
+        Axis.Miscs.WhiteListSettings.PlayersOnWhiteList = {}
+
+        for index, value in next, Value do
+            Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[index] = value
         end
-    })
+    end
+});
 
-    Animations:AddDropdown('Fall', {
-        Values = { 'Zombie','Mage', 'Superhero', 'Toy', 'Robot', 'Ninja', 'Cartoony', 'Pirate', 'Oldschool', 'Vampire', 'Elder','Knight', 'Wicked', 'Astronaut'},
-        Default = 0,
-        Multi = false,
-        Text = 'Fall Animations',
-        Callback = function(Value)
-            Signals['OnAnimationChange']:Fire('Fall', Value)
+
+for index, value in pairs(Users:GetPlayers()) do
+    OnPlayerAdded(value)
+
+    if value ~= L_Player then
+        if not table.find(Script.ListPlayersWhitelist, value.Name) then
+            table.insert(Script.ListPlayersWhitelist, value.Name)
         end
-    })
-
-    Macro:AddToggle('Macro', {
-        Text = 'Macro Enabled';
-        Default = false;
-    });
-
-    Macro:AddLabel('Keybind'):AddKeyPicker('KeyMacro', {
-        Default = 'Z',
-        SyncToggleState = false,
-        Mode = 'Toggle',
-
-        Text = 'Hold the key to enable macro animation',
-        NoUI = false,
-
-        Callback = function(Value)
-
-        end,
-
-        ChangedCallback = function(New)
-            
-        end
-    });
-
-    Macro:AddDropdown('MacroGun', {
-        Values = { '[Double-Barrel SG]', '[TacticalShotgun]', '[Revolver]' },
-        Default = 1,
-        Multi = false,
-        Text = 'Macro Gun',
-        Callback = function(Value)
-
-        end
-    });
-
-    Animations:AddDropdown('Run', {
-        Values = { 'Zombie','Mage', 'Superhero', 'Toy', 'Robot', 'Ninja', 'Oldschool', 'Cartoony', 'Pirate', 'Vampire', 'Elder','Knight', 'Astronaut'},
-        Default = 0,
-        Multi = false,
-        Text = 'Run Animations',
-        Callback = function(Value)
-            Signals['OnAnimationChange']:Fire('Run', Value)
-        end
-    })
-
-    Toggles.FHN:OnChanged(function()
-        local newvl3 = Toggles.FHN.Value
-        getgenv()["Snipe"].Character.Has__FHN = newvl3
-        Signals['LarpItemVl3']:Fire(1)
-    end)
-
-    Toggles.FHO:OnChanged(function()
-        local newvl3 = Toggles.FHO.Value
-        getgenv()["Snipe"].Character.Has__FHO = newvl3
-        Signals['LarpItemVl3']:Fire(1)
-    end)
-
-    Toggles.PHO:OnChanged(function()
-        local newvl3 = Toggles.PHO.Value
-        getgenv()["Snipe"].Character.Has__PHO = newvl3
-        Signals['LarpItemVl3']:Fire(1)
-    end)
+    end
 end
 
-do
-
-    local Main = Tabs.SilentAim:AddLeftGroupbox('Silent Aim')
-    local Checks = Tabs.SilentAim:AddRightGroupbox('Checks')
-    local Utility = Tabs.SilentAim:AddRightGroupbox('Utility')
-    local Visual = Tabs.SilentAim:AddLeftGroupbox('Visual')
-    local Range = Tabs.SilentAim:AddLeftGroupbox('Range Manipulation')
-
-    Main:AddToggle('SilentAim', {
-        Text = 'Silent Aim';
-        Default = false;
-
-        Callback = function(v131)
-            getgenv()["Snipe"].SilentAim.SilentAimEnabled = v131
+Users.PlayerAdded:Connect(function(player)
+    OnPlayerAdded(player)
+    if player ~= L_Player then
+        if not table.find(Script.ListPlayersWhitelist, player.Name) then
+            table.insert(Script.ListPlayersWhitelist, player.Name)
         end
+        Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
 
-    }):AddKeyPicker('KeySilent', {
-        Default = '..',
-        SyncToggleState = false,
-        Mode = 'Toggle',
- 
-        Text = '',
-        NoUI = false,
+        if Axis.Miscs.WhiteListSettings.AutoWhiteListOnJoin then
 
-        Callback = function(Value)
-            getgenv()["Snipe"].SilentAim.SilentAimEnabled = not getgenv()["Snipe"].SilentAim.SilentAimEnabled
-            Toggles.SilentAim:SetValue(getgenv()["Snipe"].SilentAim.SilentAimEnabled)
-            if getgenv()["Snipe"].SilentAim.SilentAimMode == 'Toggled' then
-                if getgenv()["Snipe"].SilentAim.SilentAimEnabled then
-                    local Target = Get__Closet__Player()
-                    getgenv()["Snipe"].SilentAim.SelectionAim = Target
-                else
-                    getgenv()["Snipe"].SilentAim.SelectionAim = nil
-                end
+            if not Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[player.Name] then
+                Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[player.Name] = true
             end
-        end,
 
-        ChangedCallback = function(New)
-            
+
+            Options.PlayerList:SetValue(Axis.Miscs.WhiteListSettings.PlayersOnWhiteList)
         end
-    });
+    end
+end)
 
-    Main:AddToggle('Fov', {
-        Text = 'Fov';
-        Default = false;
-        Callback = function(v)
-            getgenv()["Snipe"].SilentAim.FovEnabled = v
+Users.PlayerRemoving:Connect(function(player)
+    OnPlayerRemove(player)
+    if player ~= L_Player then
+        if table.find(Script.ListPlayersWhitelist, player.Name) then
+            table.remove(Script.ListPlayersWhitelist, table.find(Script.ListPlayersWhitelist, player.Name))
         end
-    }):AddColorPicker('Fov Color', {
-        Default = Color3.new(255, 255, 255),
-        Title = 'Fov Color',
-        Transparency = 0,
-
-        Callback = function(Value)
-            getgenv()["Snipe"].SilentAim.FovColor = Value
+        Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
+        if Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[player.Name] then
+            Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[player.Name] = nil
         end
-    })
+        Options.PlayerList:SetValue(Axis.Miscs.WhiteListSettings.PlayersOnWhiteList)
 
+    end
+end)
 
+Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
 
-    Checks:AddToggle('WallCheck', {
-        Text = 'Wall Check';
-        Default = false;
 
-        Callback = function(Value)
-            getgenv()["Snipe"].SilentAim.WallCheck = Value
-        end
-    }); 
 
-    Checks:AddToggle('Grabbed', {
-        Text = 'Grabbed Check';
-        Default = false;
-    });
- 
-    Checks:AddToggle('Down', {
-        Text = 'Down Check';
-        Default = false;
 
-        Callback = function(Value)
-            getgenv()["Snipe"].SilentAim.DownCheck = Value
-        end
 
-    });
 
+--[[Manipulation:AddDropdown('SilentAimMethod', {
 
-    Checks:AddToggle('Friend', {
-        Text = 'Friend Check';
-        Default = false;
+    Values = { 'Raycast', 'MousePos Rewrite' },
+    Default = 1,
+    Multi = false,
+    Text = 'Silent Aim Method',
 
-        Callback = function(Value)
-            getgenv()["Snipe"].SilentAim.FriendCheck = Value
-        end
-    });
+    Callback = function(Value)
+        Axis.Combat.SilentAim.SilentAimMethod = Value
+    end
+});]]--
 
-    Checks:AddToggle('CrewCheck', {
-        Text = 'Crew Check';
-        Default = false;
+local MenuGroup = Tabs['Settings']:AddLeftGroupbox('Menu')
 
-        Callback = function(Value)
-            getgenv()["Snipe"].SilentAim.CrewCheck = Value
-        end
-    });
-
-    Main:AddDropdown('AimMethod', {
-        Values = { 'FreeForAll', 'Toggled' },
-        Default = 1,
-        Multi = false,
-        Text = 'Aim Method',
-        Callback = function(Value)
-            getgenv()["Snipe"].SilentAim.SilentAimMode = Value
-        end
-    });
-
-    Main:AddDropdown('Method', {
-        Values = {'Raycast', 'Raycast Manipulation'},
-        Default = 1,
-        Multi = false,
-        Text = 'Selection Method',
-        Callback = function(Value)
-            getgenv()["Snipe"].SilentAim.SilentAimSelection = Value
-        end
-    });
-
-    Main:AddSlider('HitChance', {
-        Text = 'Hit Chance',
-        Default = 100,
-        Min = 0,
-        Max = 100,
-        Rounding = 0,
-        Compact = true,
-
-        Callback = function(Value)
-            getgenv()["Snipe"].SilentAim.HitChance = Value
-        end
-    });
-
-    Main:AddSlider('Fov', {
-        Text = 'Fov Ammout',
-        Default = 200,
-        Min = 0,
-        Max = 500,
-        Rounding = 0,
-        Compact = true,
-
-        Callback = function(Value)
-            getgenv()["Snipe"].SilentAim.SilentFov = Value
-        end
-    });
-
-    Range:AddToggle('RevolverRange', {
-        Text = 'Revolver Enabled';
-        Default = false;
-
-        Callback = function(Value)
-            getgenv()["Snipe"].RangeManipulation.RevolverEnabled = Value
-        end
-    }); 
-
-    Range:AddSlider('RevolverSlider', {
-        Text = 'Revolver',
-        Default = 250,
-        Min = 250,
-        Max = 500,
-        Rounding = 0,
-        Compact = true,
-
-        Callback = function(Value)
-            getgenv()["Snipe"].RangeManipulation.Revolver = Value
-            Signals['on__Change__Range']:Fire('Revolver')
-        end
-    });
-
-    Range:AddToggle('DoubleBarrelSGRange', {
-        Text = 'Double-Barrel SG Enabled';
-        Default = false;
-
-        Callback = function(Value)
-            getgenv()["Snipe"].RangeManipulation.DoubleBarrelSGEnabled = Value
-        end
-    }); 
-
-    Range:AddSlider('Double-BarrelSGSlider', {
-        Text = 'Double-Barrel SG',
-        Default = 95,
-        Min = 95,
-        Max = 500,
-        Rounding = 0,
-        Compact = true,
-
-        Callback = function(Value)
-            getgenv()["Snipe"].RangeManipulation.DoubleBarrelSG = Value
-            Signals['on__Change__Range']:Fire('DoubleBarrelSG')
-        end
-    });
-
-    Range:AddToggle('TacticalShotgunRange', {
-        Text = 'TacticalShotgun Enabled';
-        Default = false;
-
-        Callback = function(Value)
-            getgenv()["Snipe"].RangeManipulation.TacticalShotgunEnabled = Value
-        end
-    });
-
-    Range:AddSlider('TacticalShotgunSlider', {
-        Text = 'TacticalShotgun';
-        Default = 75,
-        Min = 75,
-        Max = 500,
-        Rounding = 0,
-        Compact = true,
-
-        Callback = function(Value)
-            getgenv()["Snipe"].RangeManipulation.TacticalShotgun = Value
-            Signals['on__Change__Range']:Fire('TacticalShotgun')
-        end
-    });
-
-    Visual:AddToggle('Trace', {
-        Text = 'Trace';
-        Default = false;
-
-        Callback = function(Value)
-            getgenv()["Snipe"].SilentAim.Visual.TraceEnabled = Value
-        end
-
-    }):AddColorPicker('TraceColor', {
-        Default = Color3.new(255, 255, 255),
-        Title = 'Trace Color',
-        Transparency = 0,
-
-        Callback = function(Value)
-            TraceSilentAim.Color = Value
-            print('[cb] Color changed!', Value)
-        end
-    })
-end
-
-do
-
-    local Main = Tabs.Triggerbot:AddLeftGroupbox('Main')
-    local Hitbox = Tabs.Triggerbot:AddRightGroupbox('Hitbox')
-
-
-    Main:AddToggle('TriggerbotEnabled', {
-        Text = 'Triggerbot Enabled';
-        Default = false;
-
-        Callback = function(Value)
-            getgenv()["Snipe"].Triggerbot.TriggerbotEnabled = Value
-        end
-    });
-
-
-    Main:AddLabel('Triggerbot KeyBind'):AddKeyPicker('TB', {
-        Default = 'X',
-        SyncToggleState = false,
-        Mode = 'Toggle',
-
-        Text = '',
-        NoUI = false,
-
-        Callback = function(Value)
-
-            if not getgenv()["Snipe"].Triggerbot.TriggerbotEnabled then return end
-            if getgenv()["Snipe"].Triggerbot.TriggerbotMode == 'Hold' then
-                getgenv()["Snipe"].Triggerbot.Holding = true
-
-                if TB__Connection then
-                    TB__Connection:Disconnect()
-                    TB__Connection = nil
-                end
-
-                TB__Connection = UserInputService__.InputEnded:Connect(function(i,g)
-                    if g then return end
-                    if i.KeyCode == Enum.KeyCode[tostring(Options.TB.Value)] then
-                        getgenv()["Snipe"].Triggerbot.Holding = false
-                        TB__Connection:Disconnect()
-                        TB__Connection = nil
-                    end
-                end)
-                return
-            end
-
-            getgenv()["Snipe"].Triggerbot.Holding = not getgenv()["Snipe"].Triggerbot.Holding
-
-        end,
-
-        ChangedCallback = function(New)
-            
-        end
-    });
-
-    Main:AddSlider('FireRate', {
-        Text = 'FireRate',
-        Default = 0.1,
-        Min = 0,
-        Max = 1,
-        Rounding = 2,
-        Compact = false,
-
-        Callback = function(Value)
-            getgenv()["Snipe"].Triggerbot.TriggerbotFireRate = Value
-        end
-    });
-
-
-    Main:AddDropdown('TriggerbotKeyBind', {
-        Values = { 'Hold', 'Toggled' },
-        Default = 1,
-        Multi = false,
-        Text = 'Mode',
-        Callback = function(Value)
-            getgenv()["Snipe"].Triggerbot.TriggerbotMode = Value
-        end
-    });
-
-    Hitbox:AddToggle('HitboxEnabled', {
-        Text = 'Hitbox Enabled';
-        Default = false;
-
-        Callback = function(Value)
-            getgenv()["Snipe"].Triggerbot.HitboxEnabled = Value
-            Signals['On__Hitbox__vl31']:Fire()
-        end
-    });
-
-    Hitbox:AddSlider('HitBoxX', {
-        Text = 'Hitbox X',
-        Default = 0,
-        Min = 0,
-        Max = 15,
-        Rounding = 0,
-        Compact = true,
-
-        Callback = function(Value)
-            getgenv()["Snipe"].Triggerbot.HitboxX = Value
-            Signals['On__Hitbox__tb']:Fire(getgenv()["Snipe"].Triggerbot.HitboxX, getgenv()["Snipe"].Triggerbot.HitboxY, getgenv()["Snipe"].Triggerbot.HitboxZ)
-        end
-    });
-
-    Hitbox:AddSlider('HitBoxY', {
-        Text = 'Hitbox Y',
-        Default = 0,
-        Min = 0,
-        Max = 15,
-        Rounding = 0,
-        Compact = true,
-
-        Callback = function(Value)
-            getgenv()["Snipe"].Triggerbot.HitboxY = Value
-            Signals['On__Hitbox__tb']:Fire(getgenv()["Snipe"].Triggerbot.HitboxX, getgenv()["Snipe"].Triggerbot.HitboxY, getgenv()["Snipe"].Triggerbot.HitboxZ)
-        end
-    });
-
-    Hitbox:AddSlider('HitBoxZ', {
-        Text = 'Hitbox Z',
-        Default = 0,
-        Min = 0,
-        Max = 15,
-        Rounding = 0,
-        Compact = true,
-
-        Callback = function(Value)
-            getgenv()["Snipe"].Triggerbot.HitboxZ = Value
-            Signals['On__Hitbox__tb']:Fire(getgenv()["Snipe"].Triggerbot.HitboxX, getgenv()["Snipe"].Triggerbot.HitboxY, getgenv()["Snipe"].Triggerbot.HitboxZ)
-        end
-    });
-
-end
-
-
-
-local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
-
+-- I set NoUI so it does not show up in the keybinds menu
 MenuGroup:AddButton('Unload', function() Library:Unload() end)
 MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'End', NoUI = true, Text = 'Menu keybind' })
 
-Library.ToggleKeybind = Options.MenuKeybind
+Library.ToggleKeybind = Options.MenuKeybind -- Allows you to have a custom keybind for the menu
 
+-- Addons:
+-- SaveManager (Allows you to have a configuration system)
+-- ThemeManager (Allows you to have a menu theme system)
 
+-- Hand the library over to our managers
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
 
+-- Ignore keys that are used by ThemeManager.
+-- (we dont want configs to save themes, do we?)
 SaveManager:IgnoreThemeSettings()
 
-
+-- Adds our MenuKeybind to the ignore list
+-- (do you want each config to have a different menu key? probably not.)
 SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
 
-ThemeManager:SetFolder('Axis')
-SaveManager:SetFolder('Axis')
+-- use case for doing it this way:
+-- a script hub could have themes in a global folder
+-- and game configs in a separate folder per game
+ThemeManager:SetFolder('MyScriptHub')
+SaveManager:SetFolder('MyScriptHub/specific-game')
 
-SaveManager:BuildConfigSection(Tabs['UI Settings'])
-ThemeManager:ApplyToTab(Tabs['UI Settings'])
+-- Builds our config menu on the right side of our tab
+SaveManager:BuildConfigSection(Tabs['Settings'])
 
+-- Builds our theme menu (with plenty of built in themes) on the left side
+-- NOTE: you can also call ThemeManager:ApplyToGroupbox to add it to a specific groupbox
+ThemeManager:ApplyToTab(Tabs['Settings'])
+
+-- You can use the SaveManager:LoadAutoloadConfig() to load a config
+-- which has been marked to be one that auto loads!
 SaveManager:LoadAutoloadConfig()
+
