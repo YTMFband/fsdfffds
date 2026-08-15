@@ -13,9 +13,7 @@ end
 local GunHandler = require(game:GetService("ReplicatedStorage").Modules.GunHandler)
 local MainModule = require(game:GetService("ReplicatedStorage").MainModule)
 
-
-
--->> ('Byppasing A-C') <<--
+-->> ('Byppasing A-C') <<-- --- soonn ill do 
 
 local Axis = {
     Combat = {
@@ -25,7 +23,7 @@ local Axis = {
             Enabled = false;
             UseFov = false;
             TargetPart = 'Head';
-            TargetPriority = 'Closest to Cursor';
+            TargetPriority = 'Closest to Mouse';
             SilentAimMethod = 'Raycast',
             SelectPriority = 'Free For All',
 
@@ -103,6 +101,14 @@ local Axis = {
             AutoWhiteListOnJoin = false;
             PlayersOnWhiteList = {};
         }
+    };
+
+    Visual = {
+        Esp = {
+            Enabled = false;
+            BoxEnabled = false;
+            HealthEnanled = false;
+        }
     }
 
 }
@@ -161,12 +167,18 @@ local Script = {
 
     Players = {};
     ListPlayersWhitelist = {};
+    LastLoggedPlayer = {};
     Player__Body__Parts = {
         "Head", "UpperTorso", "HumanoidRootPart", "LowerTorso",
         "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm",
         "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg",
         "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot"
     };
+
+    Esp = {
+        PlayersQuad = {};
+        HealthEsp = {};
+    }
 }
 
 
@@ -256,6 +268,77 @@ function OnPlayerRemove(p1 : Player)
 
 end
 
+function AddPlayerQuad(Plr : Player)
+    if not Script.Esp.PlayersQuad[Plr] then
+
+        local quad = Drawing.new("Quad")
+        quad.Visible = false
+        quad.PointA = Vector2.new(0,0)
+        quad.PointB = Vector2.new(0,0)
+        quad.PointC = Vector2.new(0,0)
+        quad.PointD = Vector2.new(0,0)
+        quad.Color = Color3.fromRGB(0, 0, 0);
+        quad.Filled = false
+        quad.Thickness = 2
+        quad.Transparency = 1
+
+        local quad1 = Drawing.new("Quad")
+        quad1.Visible = false
+        quad1.PointA = Vector2.new(0,0)
+        quad1.PointB = Vector2.new(0,0)
+        quad1.PointC = Vector2.new(0,0)
+        quad1.PointD = Vector2.new(0,0)
+        quad1.Color = Color3.fromRGB(1, 255, 85);
+        quad1.Filled = false
+        quad1.Thickness = 1
+        quad1.Transparency = 1
+
+        local Table = {
+            quad, quad1
+        }
+
+        Script.Esp.PlayersQuad[Plr] = Table
+    end
+end
+
+function PlayerAddLine(plr : Player)
+    if not Script.Esp.HealthEsp[plr] then
+
+        local line = Drawing.new("Line")
+        line.Visible = false
+        line.From = Vector2.new(0, 0)
+        line.To = Vector2.new(0, 0)
+        line.Color = Color3.fromRGB(0, 0, 0);
+        line.Thickness = 3
+        line.Transparency = 1
+
+        local line1 = Drawing.new("Line")
+        line1.Visible = false
+        line1.From = Vector2.new(0, 0)
+        line1.To = Vector2.new(0, 0)
+        line1.Color = Color3.fromRGB(0, 0, 0);
+        line1.Thickness = 1.5
+        line1.Transparency = 1
+
+        Script.Esp.HealthEsp[plr] = {
+            line, line1
+        }
+
+    end
+end
+
+function OnPlayerRemoveQuad(plr : Player)
+
+    if Script.Esp.PlayersQuad[plr] then
+        Script.Esp.PlayersQuad[plr] = nil
+    end
+
+    if Script.Esp.HealthEsp[plr] then
+        Script.Esp.HealthEsp[plr] = nil
+    end
+
+end
+
 
 
 function GetClosetTarget()
@@ -273,6 +356,7 @@ function GetClosetTarget()
         local head = Char:FindFirstChild("Head")
 
         if not hrp or not head then continue end
+        local Direction = (hrp.Position - L_Player.Character.HumanoidRootPart.Position).Magnitude
 
         if Axis.Combat.SilentAim.DownCheck and IsPlayerDown(Player)  then
             continue
@@ -283,8 +367,10 @@ function GetClosetTarget()
         if Axis.Combat.SilentAim.FriendCheck and IsFriendWith(L_Player, Player) then
             continue
         end
-        
         if Axis.Miscs.WhiteListSettings.Enabled and Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[Player.Name] then
+            continue
+        end
+        if Direction > Axis.Combat.SilentAim.MaxDistance then
             continue
         end
 
@@ -308,10 +394,14 @@ function GetClosetTarget()
             local targetPart = Char:FindFirstChild(targetPartName)
             if not targetPart then continue end
 
-            local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-            if not onScreen then continue end
 
-            local dist = (MouseLocation - Vector2.new(pos.X, pos.Y)).Magnitude
+            local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+            local LastPositon = MouseLocation
+            if Axis.Combat.SilentAim.TargetPriority == 'Closest to Center' then
+                LastPositon = Camera.ViewportSize / 2
+            end
+
+            local dist = (LastPositon - Vector2.new(pos.X, pos.Y)).Magnitude
             if dist < ClosetPosition then
                 ClosetPosition = dist
                 Target = targetPart
@@ -338,6 +428,7 @@ end]]--
 
 
 local dt__Pulse = 0;
+
 RunService.Heartbeat:Connect(function(deltaTime)
     if (Axis.Combat.SilentAim.UseFov) then
 
@@ -376,6 +467,48 @@ RunService.Heartbeat:Connect(function(deltaTime)
         Script.TargetSettings.Part = Part
     end
 
+    if (Axis.Combat.SilentAim.SelectPriority == 'Toggled' and Axis.Combat.SilentAim.Enabled and Script.TargetSettings.Player) then
+        if Script.TargetSettings.Player.Parent == Users then
+            local T_Character = Script.TargetSettings.Player.Character
+            local MouseLocation = UserInputService:GetMouseLocation()
+            local PartTo__Lock
+            local LastClosedPos = Axis.Combat.SilentAim.FovRadius
+
+            if T_Character then
+                if Axis.Combat.SilentAim.NearestPart then
+                    for _, partName in ipairs(Axis.Combat.SilentAim.NearestPartWhitelist) do
+                        local part = T_Character:FindFirstChild(partName)
+                        if not part then continue end
+
+                        local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                        if not onScreen then
+                            PartTo__Lock = T_Character:FindFirstChild(Axis.Combat.SilentAim.TargetPart)
+                            continue
+                        end
+
+                        local dist = (MouseLocation - Vector2.new(pos.X, pos.Y)).Magnitude
+                        if dist < LastClosedPos then
+                            PartTo__Lock = part
+                            LastClosedPos = dist
+                        end
+                    end
+                else
+                    local GetPartName = Axis.Combat.SilentAim.TargetPart
+                    local PartName = T_Character:FindFirstChild(GetPartName)
+                    if PartName then
+                        PartTo__Lock = PartName
+                    end
+                end
+                Script.TargetSettings.Part = PartTo__Lock
+            end
+        end
+    end
+
+    if not (Axis.Combat.SilentAim.Enabled) then
+        Script.TargetSettings.Player  = nil
+        Script.TargetSettings.Part = nil
+    end
+
     if (Axis.Combat.SilentAim.Trace) then
 
         TraceSilentAim.Color = Axis.Combat.SilentAim.TraceColor
@@ -401,6 +534,7 @@ RunService.Heartbeat:Connect(function(deltaTime)
     if (Axis.Combat.SilentAim.Circle) then
         CirclePlayer.Radius = Axis.Combat.SilentAim.CircleRadius
         CirclePlayer.Transparency = Axis.Combat.SilentAim.CircleTransparency
+        CirclePlayer.Color = Axis.Combat.SilentAim.CircleColor
 
         if Script.TargetSettings.Part then
             local Position, onScreen = Camera:WorldToViewportPoint(Script.TargetSettings.Part.Position)
@@ -417,6 +551,116 @@ RunService.Heartbeat:Connect(function(deltaTime)
 
     else
         CirclePlayer.Visible = false
+    end
+
+
+    if (Axis.Visual.Esp.Enabled) then
+        if (Axis.Visual.Esp.BoxEnabled) then
+            for Plr : Player, Box : any in next, Script.Esp.PlayersQuad do
+                local Character = Plr.Character
+                if not Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[Plr.Name] then
+                    if Character and Character:FindFirstChild('UpperTorso') and Character:FindFirstChild('Humanoid') and Character:FindFirstChild('Head') then
+                        local HumPos, OnScreen = Camera:WorldToViewportPoint(Character.UpperTorso.Position)
+                        if OnScreen then
+                            local Head = Camera:WorldToViewportPoint(Character.Head.Position)
+                            local Distance = math.clamp((Vector2.new(Head.X, Head.Y) - Vector2.new(HumPos.X, HumPos.Y)).Magnitude, 2, math.huge)
+                            local function Size(item)
+                                item.PointA = Vector2.new(HumPos.X + Distance, HumPos.Y - Distance*2)
+                                item.PointB = Vector2.new(HumPos.X - Distance, HumPos.Y - Distance*2)
+                                item.PointC = Vector2.new(HumPos.X - Distance, HumPos.Y + Distance*2)
+                                item.PointD = Vector2.new(HumPos.X + Distance, HumPos.Y + Distance*2)
+                            end
+                            local Normal = Box[1]
+                            local BlackBox = Box[2]
+                            Size(Normal)
+                            Size(BlackBox)
+                            Normal.Visible = true
+                            BlackBox.Visible = true
+
+                        else
+                            Box[1].Visible = false
+                            Box[2].Visible = false
+
+                        end
+                    end
+                else
+                    if Box[1].Visible == true then
+                        Box[1].Visible = false
+                    end
+
+                    if Box[2].Visible == true then
+                        Box[2].Visible = false
+                    end
+                end
+            end
+        else
+            for Plr : Player, Box : any in next, Script.Esp.PlayersQuad do
+                if Box[1].Visible ~= false then
+                    Box[1].Visible = false
+                end
+                if Box[2].Visible ~= false then
+                    Box[2].Visible = false
+                end
+            end
+        end
+
+
+        if (Axis.Visual.Esp.HealthEnanled) then
+            for Plr : Player, table : any in next, Script.Esp.HealthEsp do
+                local Character = Plr.Character
+                if not Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[Plr.Name] then 
+                    if Character and Character:FindFirstChild('UpperTorso') and Character:FindFirstChild('HumanoidRootPart') and Character:FindFirstChild('Humanoid') and Character:FindFirstChild('Head') then
+                        local HumPos, OnScreen = Camera:WorldToViewportPoint(Character.UpperTorso.Position)
+                        if OnScreen then
+                            local Head = Camera:WorldToViewportPoint(Character.Head.Position)
+                            local Distance = math.clamp((Vector2.new(Head.X, Head.Y) - Vector2.new(HumPos.X, HumPos.Y)).Magnitude, 2, math.huge)
+                            local d = (Vector2.new(HumPos.X - Distance, HumPos.Y - Distance*2) - Vector2.new(HumPos.X - Distance, HumPos.Y + Distance*2)).magnitude 
+                            local healthoffset = Plr.Character.Humanoid.Health/Plr.Character.Humanoid.MaxHealth * d
+
+                            local HealthBox1 = table[1]
+                            local HealthBox2 = table[2]
+
+                            HealthBox2.Visible = true
+                            HealthBox1.Visible = true
+
+                            HealthBox2.From = Vector2.new(HumPos.X - Distance - 4, HumPos.Y + Distance*2)
+                            HealthBox2.To = Vector2.new(HumPos.X - Distance - 4, HumPos.Y + Distance*2 - healthoffset)
+
+                            HealthBox1.From = Vector2.new(HumPos.X - Distance - 4, HumPos.Y + Distance*2)
+                            HealthBox1.To = Vector2.new(HumPos.X - Distance - 4, HumPos.Y - Distance*2)
+
+                            local green = Color3.fromRGB(0, 255, 0)
+                            local red = Color3.fromRGB(255, 0, 0)
+
+                            HealthBox2.Color = red:lerp(green, Plr.Character.Humanoid.Health/Plr.Character.Humanoid.MaxHealth);
+                        else
+                            table[1].Visible = false
+                            table[2].Visible = false
+                        end
+                    end
+                else
+                    if table[1].Visible == true then
+                        table[1].Visible = false
+                    end
+
+                    if table[2].Visible == true then
+                        table[2].Visible = false
+                    end
+                end
+            end
+        else
+            for Plr : Player, table : any in next, Script.Esp.HealthEsp do
+
+                if table[1].Visible ~= false then
+                    table[1].Visible = false
+                end
+
+                if table[2].Visible ~= false then
+                    table[2].Visible = false
+                end
+
+            end
+        end
     end
 end)
 
@@ -499,8 +743,11 @@ local SilentAimTab = Tabs.Combat:AddLeftGroupbox('Silent aim')
 local SilentAimVisual = Tabs.Combat:AddLeftGroupbox('Silent aim Visual')
 local CameraTab = Tabs.Combat:AddRightGroupbox('Camera')
 
-
 local whitelisttab = Tabs.Miscs:AddLeftGroupbox('Whitelist');
+
+local Esp = Tabs.Visuals:AddLeftGroupbox('Esp');
+
+
 
 SilentAimTab:AddToggle('SilentAimEnabled', {
     Text = 'Enabled';
@@ -518,7 +765,16 @@ SilentAimTab:AddToggle('SilentAimEnabled', {
     NoUI = false,
 
     Callback = function(Value)
-        print(Value)
+        Axis.Combat.SilentAim.Enabled = not Axis.Combat.SilentAim.Enabled
+        Toggles.SilentAimEnabled:SetValue(Axis.Combat.SilentAim.Enabled)
+        if Axis.Combat.SilentAim.SelectPriority == 'Toggled' then
+            if Axis.Combat.SilentAim.Enabled == true then
+                local Ignore, Player = GetClosetTarget()
+                Script.TargetSettings.Player = Player
+            else
+                Script.TargetSettings.Player = nil
+            end
+        end
     end,
 
     ChangedCallback = function(New)
@@ -1095,30 +1351,64 @@ whitelisttab:AddDropdown('PlayerList', {
 });
 
 
+
+
+Esp:AddToggle('EspEnabled', {
+    Text = 'Enabled';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Visual.Esp.Enabled = vf
+    end
+})
+
+Esp:AddToggle('BoxEnabled', {
+    Text = 'Box Enabled';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Visual.Esp.BoxEnabled = vf
+    end
+})
+
+Esp:AddToggle('BoxEnabled', {
+    Text = 'Health Enabled';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Visual.Esp.HealthEnanled = vf
+    end
+})
+
 for index, value in pairs(Users:GetPlayers()) do
     OnPlayerAdded(value)
-
     if value ~= L_Player then
+        AddPlayerQuad(value)
+        PlayerAddLine(value)
+
         if not table.find(Script.ListPlayersWhitelist, value.Name) then
             table.insert(Script.ListPlayersWhitelist, value.Name)
         end
+
     end
 end
 
 Users.PlayerAdded:Connect(function(player)
+
     OnPlayerAdded(player)
+    AddPlayerQuad(player)
+    PlayerAddLine(player)
+
     if player ~= L_Player then
         if not table.find(Script.ListPlayersWhitelist, player.Name) then
             table.insert(Script.ListPlayersWhitelist, player.Name)
         end
         Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
 
-        if Axis.Miscs.WhiteListSettings.AutoWhiteListOnJoin then
-
+        if Axis.Miscs.WhiteListSettings.AutoWhiteListOnJoin and not Script.LastLoggedPlayer[player.UserId] == true then
             if not Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[player.Name] then
                 Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[player.Name] = true
             end
-
 
             Options.PlayerList:SetValue(Axis.Miscs.WhiteListSettings.PlayersOnWhiteList)
         end
@@ -1127,6 +1417,13 @@ end)
 
 Users.PlayerRemoving:Connect(function(player)
     OnPlayerRemove(player)
+    OnPlayerRemoveQuad(player)
+    local Userid = player.UserId
+
+    if not Script.LastLoggedPlayer[Userid] then
+        Script.LastLoggedPlayer[Userid] = true
+    end
+
     if player ~= L_Player then
         if table.find(Script.ListPlayersWhitelist, player.Name) then
             table.remove(Script.ListPlayersWhitelist, table.find(Script.ListPlayersWhitelist, player.Name))
@@ -1143,60 +1440,21 @@ end)
 Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
 
 
-
-
-
-
---[[Manipulation:AddDropdown('SilentAimMethod', {
-
-    Values = { 'Raycast', 'MousePos Rewrite' },
-    Default = 1,
-    Multi = false,
-    Text = 'Silent Aim Method',
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.SilentAimMethod = Value
-    end
-});]]--
-
 local MenuGroup = Tabs['Settings']:AddLeftGroupbox('Menu')
 
--- I set NoUI so it does not show up in the keybinds menu
+
 MenuGroup:AddButton('Unload', function() Library:Unload() end)
 MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'End', NoUI = true, Text = 'Menu keybind' })
 
-Library.ToggleKeybind = Options.MenuKeybind -- Allows you to have a custom keybind for the menu
-
--- Addons:
--- SaveManager (Allows you to have a configuration system)
--- ThemeManager (Allows you to have a menu theme system)
-
--- Hand the library over to our managers
+Library.ToggleKeybind = Options.MenuKeybind
 ThemeManager:SetLibrary(Library)
 SaveManager:SetLibrary(Library)
 
--- Ignore keys that are used by ThemeManager.
--- (we dont want configs to save themes, do we?)
 SaveManager:IgnoreThemeSettings()
 
--- Adds our MenuKeybind to the ignore list
--- (do you want each config to have a different menu key? probably not.)
 SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
 
--- use case for doing it this way:
--- a script hub could have themes in a global folder
--- and game configs in a separate folder per game
-ThemeManager:SetFolder('MyScriptHub')
 SaveManager:SetFolder('MyScriptHub/specific-game')
 
--- Builds our config menu on the right side of our tab
 SaveManager:BuildConfigSection(Tabs['Settings'])
-
--- Builds our theme menu (with plenty of built in themes) on the left side
--- NOTE: you can also call ThemeManager:ApplyToGroupbox to add it to a specific groupbox
-ThemeManager:ApplyToTab(Tabs['Settings'])
-
--- You can use the SaveManager:LoadAutoloadConfig() to load a config
--- which has been marked to be one that auto loads!
-SaveManager:LoadAutoloadConfig()
 
