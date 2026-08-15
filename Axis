@@ -108,6 +108,7 @@ local Axis = {
             Enabled = false;
             BoxEnabled = false;
             HealthEnanled = false;
+            NameEnabled =false;
         }
     }
 
@@ -143,10 +144,7 @@ local RunService = game:GetService('RunService');
 
 local L_Player = Users.LocalPlayer;
 local L_Mouse = L_Player:GetMouse()
-
-
-
-
+local Auto__Scale__Text =false;
 
 
 local Script = {
@@ -178,6 +176,7 @@ local Script = {
     Esp = {
         PlayersQuad = {};
         HealthEsp = {};
+        NameEsp = {};
     }
 }
 
@@ -327,16 +326,36 @@ function PlayerAddLine(plr : Player)
     end
 end
 
+function PlayernameAdd(Player : Player)
+    if not Script.Esp.NameEsp[Player] then
+
+        local text = Drawing.new("Text")
+        text.Visible = false
+        text.Text = ""
+        text.Position = Vector2.new(0, 0)
+        text.Color = Color3.fromRGB(255, 255, 255);
+        text.Size = 19
+        text.Center = true
+        text.Transparency = 1
+
+        Script.Esp.NameEsp[Player] = text
+    end
+end
+
 function OnPlayerRemoveQuad(plr : Player)
 
-    if Script.Esp.PlayersQuad[plr] then
-        Script.Esp.PlayersQuad[plr] = nil
+    for i,v in next, Script.Esp.PlayersQuad[plr]  do
+        v.Visible = false
+        i = nil
     end
 
-    if Script.Esp.HealthEsp[plr] then
-        Script.Esp.HealthEsp[plr] = nil
+    for i,v in next, Script.Esp.HealthEsp[plr]  do
+        v.Visible = false
+        i = nil
     end
 
+    Script.Esp.NameEsp[plr].Visible = false
+    Script.Esp.NameEsp[plr] = nil
 end
 
 
@@ -555,6 +574,8 @@ RunService.Heartbeat:Connect(function(deltaTime)
 
 
     if (Axis.Visual.Esp.Enabled) then
+
+
         if (Axis.Visual.Esp.BoxEnabled) then
             for Plr : Player, Box : any in next, Script.Esp.PlayersQuad do
                 local Character = Plr.Character
@@ -661,6 +682,66 @@ RunService.Heartbeat:Connect(function(deltaTime)
 
             end
         end
+
+        if (Axis.Visual.Esp.NameEnabled) then
+            for Plr : Player, Text : any in next, Script.Esp.NameEsp do
+                local l_Char = Plr.Character
+                if not Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[Plr.Name] then 
+                    if l_Char and l_Char:FindFirstChild('HumanoidRootPart') then
+                        local pos, onScreen = Camera:WorldToViewportPoint(l_Char.HumanoidRootPart.Position)
+                        if onScreen then
+
+                            if Auto__Scale__Text then
+                                local distance = (Vector3.new(Camera.CFrame.X, Camera.CFrame.Y, Camera.CFrame.Z) - Plr.Character.HumanoidRootPart.Position).magnitude
+                                local textsize = math.clamp(1/distance*1000, 2, 30) 
+                                Text.Size = textsize
+                            end
+
+                            Text.Position = Vector2.new(pos.X, pos.Y + 5)
+                            Text.Text  = Plr.Name
+                            Text.Visible = true
+                        else
+                            Text.Visible = false
+                        end
+                    end
+                elseif Text.Visible == true then
+                    Text.Visible = false
+                end
+            end
+        else
+            for Plr : Player, Text : any in next, Script.Esp.NameEsp do
+                if Text.Visible ~= false then
+                    Text.Visible = false
+                end
+            end
+        end
+
+    else
+
+        for Plr : Player, table : any in next, Script.Esp.HealthEsp do
+            if table[1].Visible ~= false then
+                table[1].Visible = false
+            end
+            if table[2].Visible ~= false then
+                table[2].Visible = false
+            end
+        end
+
+        for Plr : Player, Box : any in next, Script.Esp.PlayersQuad do
+            if Box[1].Visible ~= false then
+                Box[1].Visible = false
+            end
+            if Box[2].Visible ~= false then
+                Box[2].Visible = false
+            end
+        end
+
+        for Plr : Player, Text : any in next, Script.Esp.NameEsp do
+            if Text.Visible ~= false then
+                Text.Visible = false
+            end
+        end
+
     end
 end)
 
@@ -1380,11 +1461,23 @@ Esp:AddToggle('BoxEnabled', {
     end
 })
 
+
+Esp:AddToggle('NameEnabled', {
+    Text = 'Name Enabled';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Visual.Esp.NameEnabled = vf
+    end
+})
+
+
 for index, value in pairs(Users:GetPlayers()) do
     OnPlayerAdded(value)
     if value ~= L_Player then
         AddPlayerQuad(value)
         PlayerAddLine(value)
+        PlayernameAdd(value)
 
         if not table.find(Script.ListPlayersWhitelist, value.Name) then
             table.insert(Script.ListPlayersWhitelist, value.Name)
@@ -1398,6 +1491,7 @@ Users.PlayerAdded:Connect(function(player)
     OnPlayerAdded(player)
     AddPlayerQuad(player)
     PlayerAddLine(player)
+    PlayernameAdd(player)
 
     if player ~= L_Player then
         if not table.find(Script.ListPlayersWhitelist, player.Name) then
@@ -1416,8 +1510,10 @@ Users.PlayerAdded:Connect(function(player)
 end)
 
 Users.PlayerRemoving:Connect(function(player)
+
     OnPlayerRemove(player)
     OnPlayerRemoveQuad(player)
+
     local Userid = player.UserId
 
     if not Script.LastLoggedPlayer[Userid] then
