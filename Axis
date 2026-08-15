@@ -437,9 +437,9 @@ end
 
 local oldGetAim = GunHandler.GetAim
 GunHandler.GetAim = function(p17, ...)
-    
+
     if Axis.Combat.SilentAim.Enabled and Script.TargetSettings.Part then
-        if Hit__Chance then
+        if Hit__Chance() then
             local NewHookPosition = Script.TargetSettings.Part.Position
             local origin = p17
             local direction = (NewHookPosition - origin).Unit
