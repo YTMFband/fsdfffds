@@ -416,15 +416,37 @@ RunService.Heartbeat:Connect(function(deltaTime)
     end
 end)
 
+
+local last__chance__shoot = 0
+local last__chance__hit = false
+
+local TB__Connection = nil;
+local Last__Shoot__tb = 0;
+
+local Hit__Chance = function()
+    local currentTime = tick()
+
+    if currentTime - last__chance__shoot > 0.05 then
+        last__chance__shoot = currentTime
+        local chance = Axis.Combat.SilentAim.HitChance or 100
+        last__chance__hit = math.random(1, 100) <= chance
+    end
+    
+    return last__chance__hit
+end
+
 local oldGetAim = GunHandler.GetAim
 GunHandler.GetAim = function(p17, ...)
+    
     if Axis.Combat.SilentAim.Enabled and Script.TargetSettings.Part then
-        local NewHookPosition = Script.TargetSettings.Part.Position
-        local origin = p17
-        local direction = (NewHookPosition - origin).Unit
-        local distance = (NewHookPosition - origin).Magnitude
-        
-        return direction, distance
+        if Hit__Chance then
+            local NewHookPosition = Script.TargetSettings.Part.Position
+            local origin = p17
+            local direction = (NewHookPosition - origin).Unit
+            local distance = (NewHookPosition - origin).Magnitude
+            
+            return direction, distance
+        end
     end
     
     --[[if settings and settings.SilentAimEnabled and settings.SelectionAim then
