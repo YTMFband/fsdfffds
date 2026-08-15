@@ -194,11 +194,15 @@ end
 
 function IsPlayerDown(p1 : Player)
 
-    if not p1:FindFirstChild('BodyEffects') then
+    if not p1.Character then
+        return false
+    end
+    
+    if not p1.Character:FindFirstChild('BodyEffects') then
         return false
     end
 
-    if  p1:FindFirstChild('BodyEffects')['K.O'].Value then
+    if  p1.Character:FindFirstChild('BodyEffects')['K.O'].Value then
         return true
     end
 
