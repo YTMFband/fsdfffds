@@ -22,9 +22,11 @@ local Axis = {
 
             Enabled = false;
             UseFov = false;
+            FovColor = Color3.fromRGB(247, 204, 241);
             TargetPart = 'Head';
+            Keybind = 'Fn';
             TargetPriority = 'Closest to Mouse';
-            SilentAimMethod = 'Raycast',
+            SilentAimMethod = 'ReWrite Mouse',
             SelectPriority = 'Free For All',
 
             NearestPartWhitelist = {
@@ -47,28 +49,42 @@ local Axis = {
             FovRadius = 200;
             MaxDistance = 350;
 
-            FovColor = Color3.fromRGB(87, 240, 146);
-            FilledFov = false;
-            PulseFov = false;
-            FovThickness = 1;
-            PulseAmmout = 8;
-            PulseSpeed = 3;
-            FovTransparency = 1;
+            Visual = {
 
-            Trace = false;
-            TraceColor = Color3.fromRGB(87, 240, 146);
-            TraceFrom = 'From Cursor';
-            Dot = false;
-            DotColor = Color3.fromRGB(87, 240, 146);
-            DotTransparency = 1;
-            DotRadius = 8;
-            TraceTransparency = 1;
-            TraceThickness = 0;
+                Filled = {
+                    Enabled = false,
+                    Color = Color3.fromRGB(247, 204, 241),
+                    Transparency = 0.15,
+                },
 
-            Circle = false;
-            CircleColor = Color3.fromRGB(87, 240, 146);
-            CircleRadius = 15;
-            CircleTransparency = 1;
+                Pulse = {
+                    Enabled = false,
+                    Ammout = 15,
+                    Speed = 4,
+                },
+
+                Trace = {
+
+                    Enabled = false,
+                    Color = Color3.fromRGB(247, 204, 241),
+                    Thickness = 1.5
+
+                };
+
+                Circle = {
+
+                    Enabled = false;
+                    Filled = false;
+                    Color = Color3.fromRGB(247, 204, 241);
+                    FilledColor = Color3.fromRGB(247, 204, 241);
+                    Thickness = 2;
+                    Radius = 15;
+                    Transparency = 1;
+                    FilledTransparency = 0.25
+
+                }
+
+            }
         },
 
         Camera = {
@@ -96,43 +112,101 @@ local Axis = {
     },
 
     Miscs = {
+
+        LegitUtility = {
+
+
+            AutoEat = false;
+            AutoStomp = false;
+            AutoBuyArmor = false;
+            AutoBuyFoods = false;
+            FoodsList = {};
+            AutoBuyDistance = 9;
+
+        },
+
         WhiteListSettings = {
             Enabled = false;
             AutoWhiteListOnJoin = false;
             PlayersOnWhiteList = {};
-        }
+        },
+
+        GunMacro = {
+            Enabled = false;
+            Keybind = 'Fn',
+            AutoShoot = false;
+            GunList = {},
+        },
     };
 
     Visual = {
-        Esp = {
+
+        Lighting = {
+
+            Ambiend = false;
+            AmbiendColor = Color3.fromRGB(197, 35, 247),
+
+            OutDoorAmbiend = false,
+            OutDoorAmbiendColor = Color3.fromRGB(197, 35, 247),
+
+            ColorShift_Bottom = false;
+            ColorShift_BottomColor = Color3.fromRGB(0, 153, 255),
+
+            ColorShift_Top = false;
+            ColorShift_TopColor = Color3.fromRGB(251, 251, 252),
+            
+            Fog = false;
+            FogColor = Color3.fromRGB(241, 231, 136),
+
+            FogStart = 50,
+            FogEnd = 500,
+
+            Brightness = false,
+            BrightnessVl3 = 0.2,
+
+            LightingStyle = 'Soft',
+            Technology = 'Voxel',
+
+            Shadow = false,
+            ShadowColor = Color3.fromRGB(241, 231, 136),
+            ShadowSlider = 1,
+            GlobalShadow = false;
+
+        },
+
+        ColorCorrection = {
+
             Enabled = false;
-            BoxEnabled = false;
-            HealthEnanled = false;
-            NameEnabled =false;
+            Color = Color3.fromRGB(255, 255, 255),
+            Saturation = 1.6;
+            Contrast = 0;
+            Brightness = -0.05;
+
+        },
+
+
+        Esp = {
+
+            Enabled = false;
+            Box = false;
+            Name = false;
+            Highlight = false,
+            Distance = false;
+            Armor = false;
+            Health = false;
+            Gun = false;
+
+            BoxTransparency = 1,
+            BoxFilled = false,
+            BoxFilledTransparency = 0.15,
+
+            HighlightTransparency = 0.25,
+            MaxDistance = 500,
         }
     }
 
 }
 
-local SilentAim__Fov = Drawing.new('Circle')
-SilentAim__Fov.Color = Color3.fromRGB(255,255,255)
-SilentAim__Fov.Thickness = 1
-SilentAim__Fov.Transparency = 1
-SilentAim__Fov.Radius = 200
-SilentAim__Fov.NumSide = 100
-
-local TraceSilentAim = Drawing.new("Line")
-TraceSilentAim.Visible = true
-TraceSilentAim.Color = Color3.fromRGB(255,255,255)
-TraceSilentAim.Thickness = 1
-TraceSilentAim.Transparency = 1
-
-local CirclePlayer = Drawing.new('Circle')
-CirclePlayer.Color = Color3.fromRGB(255,255,255)
-CirclePlayer.Thickness = 1
-CirclePlayer.Transparency = 1
-CirclePlayer.Radius = 25
-CirclePlayer.NumSide = 100
 
 local ProximityPromptService = game:GetService('ProximityPromptService')
 local UserInputService = game:GetService('UserInputService');
@@ -140,11 +214,14 @@ local Users = game:GetService('Players');
 local ReplicatedStorage = game:GetService('ReplicatedStorage');
 local Camera = workspace.CurrentCamera;
 local RunService = game:GetService('RunService');
+local Lighting = game:GetService('Lighting');
 
 
 local L_Player = Users.LocalPlayer;
 local L_Mouse = L_Player:GetMouse()
-local Auto__Scale__Text =false;
+local Auto__Scale__Text =true;
+local NewKeybindCooldown = false;
+local FullyDisblaed = false;
 
 
 local Script = {
@@ -166,21 +243,100 @@ local Script = {
     Players = {};
     ListPlayersWhitelist = {};
     LastLoggedPlayer = {};
-    Player__Body__Parts = {
-        "Head", "UpperTorso", "HumanoidRootPart", "LowerTorso",
-        "LeftUpperArm", "RightUpperArm", "LeftLowerArm", "RightLowerArm",
-        "LeftHand", "RightHand", "LeftUpperLeg", "RightUpperLeg",
-        "LeftLowerLeg", "RightLowerLeg", "LeftFoot", "RightFoot"
+    PlayersLibraryEsp = {},
+
+    Drawing = {
+
+        SilentAimLibrary = {
+            Big = nil;
+            Normal = nil;
+            Filled = nil;
+        };
+
+        LineLibrary = {
+            Normal = nil,
+            Big = nil,
+        },
+
+        CircleTarget = {
+            Big = nil;
+            Normal = nil;
+            Filled = nil;
+        }
     };
 
-    Esp = {
-        PlayersQuad = {};
-        HealthEsp = {};
-        NameEsp = {};
-    }
+    MouseLocation = nil;
 }
 
+function DrawFov(Thickness, NumSide, Radius, Color)
+    local Default = Drawing.new('Circle')
+    Default.Color = Color
+    Default.Thickness = Thickness
+    Default.Visible = false
+    Default.Transparency = 1
+    Default.Radius = Radius
+    Default.NumSide = NumSide
+    return Default
+end
 
+function DrawLine(Thickness,Color)
+    local Default = Drawing.new("Line")
+    Default.Visible = false
+    Default.Color = Color
+    Default.Thickness = Thickness
+    Default.Transparency = 1
+    return Default
+end
+
+
+function DrawQuad(Thickness, Color)
+    local quad = Drawing.new("Quad")
+    quad.Visible = false
+    quad.PointA = Vector2.new(0,0)
+    quad.PointB = Vector2.new(0,0)
+    quad.PointC = Vector2.new(0,0)
+    quad.PointD = Vector2.new(0,0)
+    quad.Color = Color
+    quad.Filled = false
+    quad.Thickness = Thickness
+    quad.Transparency = 1
+    quad.Filled  = false
+    return quad
+end
+
+function DrawText(DefaultSize, Color, transparency)
+    local text = Drawing.new("Text")
+    text.Visible = false
+    text.Text = ""
+    text.Position = Vector2.new(0, 0)
+    text.Color = Color
+    text.Size = DefaultSize
+    text.Center = true
+    text.Transparency = transparency
+    text.Outline = true
+    return text
+end
+
+
+
+
+
+
+
+Script.Drawing.SilentAimLibrary.Filled = DrawFov(0, 100, 200, Color3.fromRGB(247, 204, 241))
+Script.Drawing.SilentAimLibrary.Big = DrawFov(4, 100, 200, Color3.fromRGB(0, 0, 0))
+Script.Drawing.SilentAimLibrary.Normal = DrawFov(2, 100, 200, Color3.fromRGB(243, 207, 207))
+Script.Drawing.SilentAimLibrary.Filled.Filled = true
+Script.Drawing.SilentAimLibrary.Filled.Transparency = 0.15
+
+Script.Drawing.CircleTarget.Filled = DrawFov(0, 100, 200, Color3.fromRGB(247, 204, 241))
+Script.Drawing.CircleTarget.Big = DrawFov(4, 100, 200, Color3.fromRGB(0, 0, 0))
+Script.Drawing.CircleTarget.Normal = DrawFov(2, 100, 200, Color3.fromRGB(243, 207, 207))
+Script.Drawing.CircleTarget.Filled.Filled = true
+Script.Drawing.CircleTarget.Filled.Transparency = 0.25
+
+Script.Drawing.LineLibrary.Big = DrawLine(2.5, Color3.fromRGB(0, 0, 0))
+Script.Drawing.LineLibrary.Normal = DrawLine(1.5, Color3.fromRGB(87, 240, 146))
 
 
 function WallCheck(Part: Instance)
@@ -243,120 +399,90 @@ function IsFriendWith(p1 : Player, p2 : Player)
     return false
 end
 
-function OnPlayerAdded(plr: Player)
 
+function OnPlayerAdded(plr: Player)
     if plr == L_Player then
         return
     end
-
     if not table.find(Script.Players, plr) then
         table.insert(Script.Players, plr)
     end
-
 end
 
-function OnPlayerRemove(p1 : Player)
 
+function OnPlayerRemove(p1 : Player)
     if p1 == L_Player then
         return
     end
-
     if table.find(Script.Players, p1) then
         table.remove(Script.Players, table.find(Script.Players, p1))
     end
-
 end
 
-function AddPlayerQuad(Plr : Player)
-    if not Script.Esp.PlayersQuad[Plr] then
 
-        local quad = Drawing.new("Quad")
-        quad.Visible = false
-        quad.PointA = Vector2.new(0,0)
-        quad.PointB = Vector2.new(0,0)
-        quad.PointC = Vector2.new(0,0)
-        quad.PointD = Vector2.new(0,0)
-        quad.Color = Color3.fromRGB(0, 0, 0);
-        quad.Filled = false
-        quad.Thickness = 2
-        quad.Transparency = 1
+function OnVisualsAdded(p1)
+    if not Script.PlayersLibraryEsp[p1] then
+        Script.PlayersLibraryEsp[p1] = {
+            Esp = {
 
-        local quad1 = Drawing.new("Quad")
-        quad1.Visible = false
-        quad1.PointA = Vector2.new(0,0)
-        quad1.PointB = Vector2.new(0,0)
-        quad1.PointC = Vector2.new(0,0)
-        quad1.PointD = Vector2.new(0,0)
-        quad1.Color = Color3.fromRGB(1, 255, 85);
-        quad1.Filled = false
-        quad1.Thickness = 1
-        quad1.Transparency = 1
+                Normal2D = {
+                    FakeFilled = DrawQuad(0, Color3.fromRGB(53, 45, 45)),
+                    NewQuad = DrawQuad(3, Color3.fromRGB(0, 0, 0)),
+                    OldQuad = DrawQuad(1.5, Color3.fromRGB(255, 255, 255)),
+                },
 
-        local Table = {
-            quad, quad1
+                Normal3D = {
+
+                }
+            },
+
+            HealthBar = DrawLine(3, Color3.fromRGB(0, 0, 0)),
+            Health = DrawLine(1.5, Color3.fromRGB(64, 255, 57)),
+
+            ArmorBar = DrawLine(2, Color3.fromRGB(0, 0, 0)),
+            Armor = DrawLine(1, Color3.fromRGB(20, 116, 241)),
+
+            DisplayName = DrawText(19, Color3.fromRGB(235, 234, 234),1),
+            Distance = DrawText(19, Color3.fromRGB(235, 234, 234),1)
         }
-
-        Script.Esp.PlayersQuad[Plr] = Table
     end
 end
 
-function PlayerAddLine(plr : Player)
-    if not Script.Esp.HealthEsp[plr] then
+function OnVisualRemove(p1)
+    if Script.PlayersLibraryEsp[p1] then
 
-        local line = Drawing.new("Line")
-        line.Visible = false
-        line.From = Vector2.new(0, 0)
-        line.To = Vector2.new(0, 0)
-        line.Color = Color3.fromRGB(0, 0, 0);
-        line.Thickness = 3
-        line.Transparency = 1
+        local Esp = Script.PlayersLibraryEsp[p1].Esp
 
-        local line1 = Drawing.new("Line")
-        line1.Visible = false
-        line1.From = Vector2.new(0, 0)
-        line1.To = Vector2.new(0, 0)
-        line1.Color = Color3.fromRGB(0, 0, 0);
-        line1.Thickness = 1.5
-        line1.Transparency = 1
+        local DisplayName = Script.PlayersLibraryEsp[p1].DisplayName
+        local Distance = Script.PlayersLibraryEsp[p1].Distance
 
-        Script.Esp.HealthEsp[plr] = {
-            line, line1
-        }
+
+        local Hleathbar = Script.PlayersLibraryEsp[p1].HealthBar
+        local Health = Script.PlayersLibraryEsp[p1].Health
+
+        local ArmorBar = Script.PlayersLibraryEsp[p1].ArmorBar
+        local Armor = Script.PlayersLibraryEsp[p1].Armor
+
+
+        for index, value in next, Esp do
+            for Name, drawing in next, value do
+                drawing:Remove()
+            end
+
+        end
+
+        DisplayName:Remove()
+        Distance:Remove()
+
+        Hleathbar:Remove()
+        Health:Remove()
+
+        ArmorBar:Remove()
+        Armor:Remove()
 
     end
 end
 
-function PlayernameAdd(Player : Player)
-    if not Script.Esp.NameEsp[Player] then
-
-        local text = Drawing.new("Text")
-        text.Visible = false
-        text.Text = ""
-        text.Position = Vector2.new(0, 0)
-        text.Color = Color3.fromRGB(255, 255, 255);
-        text.Size = 19
-        text.Center = true
-        text.Transparency = 1
-
-        Script.Esp.NameEsp[Player] = text
-    end
-end
-
-function OnPlayerRemoveQuad(plr : Player)
-
-    for i,v in next, Script.Esp.PlayersQuad[plr]  do
-        v.Visible = false
-        i = nil
-    end
-
-    for i,v in next, Script.Esp.HealthEsp[plr]  do
-        v.Visible = false
-        i = nil
-    end
-
-    Script.Esp.NameEsp[plr].Visible = false
-    Script.Esp.NameEsp[plr] = nil
-end
 
 
 
@@ -449,300 +575,270 @@ end]]--
 local dt__Pulse = 0;
 
 RunService.Heartbeat:Connect(function(deltaTime)
-    if (Axis.Combat.SilentAim.UseFov) then
-
-        if not SilentAim__Fov.Visible then
-            SilentAim__Fov.Visible = true
-        end
-
-        local MouseLocation = UserInputService:GetMouseLocation()
-        
-        SilentAim__Fov.Transparency = Axis.Combat.SilentAim.FovTransparency
-        SilentAim__Fov.Position = Vector2.new(MouseLocation.X, MouseLocation.Y)
-        SilentAim__Fov.Color = Axis.Combat.SilentAim.FovColor
-        SilentAim__Fov.Thickness = Axis.Combat.SilentAim.FovThickness
-        SilentAim__Fov.Filled = Axis.Combat.SilentAim.FilledFov
-
-        if (Axis.Combat.SilentAim.PulseFov) then
-            local Speed = Axis.Combat.SilentAim.PulseSpeed
-            local Amount = Axis.Combat.SilentAim.PulseAmmout
-            local BaseFov = Axis.Combat.SilentAim.FovRadius
-
-            dt__Pulse = dt__Pulse + (deltaTime * Speed)
-            SilentAim__Fov.Radius = BaseFov + (math.cos(dt__Pulse) * Amount)
-        else
-            SilentAim__Fov.Radius = Axis.Combat.SilentAim.FovRadius
-        end
-
-    else
-        if SilentAim__Fov.Visible then
-            SilentAim__Fov.Visible = false
-        end
-    end
-
-    if (Axis.Combat.SilentAim.Enabled and Axis.Combat.SilentAim.SelectPriority == 'Free For All') then
-        local Part : BasePart, Pl1x : Player = GetClosetTarget()
-        Script.TargetSettings.Player = Pl1x
-        Script.TargetSettings.Part = Part
-    end
-
-    if (Axis.Combat.SilentAim.SelectPriority == 'Toggled' and Axis.Combat.SilentAim.Enabled and Script.TargetSettings.Player) then
+    local MouseLocation = UserInputService:GetMouseLocation()
+    
+    if ( Axis.Combat.SilentAim.Enabled and Axis.Combat.SilentAim.SelectPriority == 'Free For All')  then
+        local part, plr = GetClosetTarget()
+        Script.TargetSettings.Part = part
+    elseif (Axis.Combat.SilentAim.Enabled and Script.TargetSettings.Player and Axis.Combat.SilentAim.SelectPriority == 'Toggled') then
         if Script.TargetSettings.Player.Parent == Users then
-            local T_Character = Script.TargetSettings.Player.Character
-            local MouseLocation = UserInputService:GetMouseLocation()
-            local PartTo__Lock
-            local LastClosedPos = Axis.Combat.SilentAim.FovRadius
-
-            if T_Character then
+            local HookCharacter = Script.TargetSettings.Player.character
+            local HookPart
+            if (HookCharacter and HookCharacter:FindFirstChild('HumanoidRootPart')) then
                 if Axis.Combat.SilentAim.NearestPart then
-                    for _, partName in ipairs(Axis.Combat.SilentAim.NearestPartWhitelist) do
-                        local part = T_Character:FindFirstChild(partName)
-                        if not part then continue end
-
-                        local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                        if not onScreen then
-                            PartTo__Lock = T_Character:FindFirstChild(Axis.Combat.SilentAim.TargetPart)
-                            continue
-                        end
-
-                        local dist = (MouseLocation - Vector2.new(pos.X, pos.Y)).Magnitude
-                        if dist < LastClosedPos then
-                            PartTo__Lock = part
-                            LastClosedPos = dist
-                        end
-                    end
                 else
                     local GetPartName = Axis.Combat.SilentAim.TargetPart
-                    local PartName = T_Character:FindFirstChild(GetPartName)
+                    local PartName = HookCharacter:FindFirstChild(GetPartName)
                     if PartName then
-                        PartTo__Lock = PartName
+                        HookPart = PartName
                     end
                 end
-                Script.TargetSettings.Part = PartTo__Lock
+
+                Script.TargetSettings.Part = HookPart
             end
         end
-    end
-
-    if not (Axis.Combat.SilentAim.Enabled) then
-        Script.TargetSettings.Player  = nil
+    elseif (Axis.Combat.SilentAim.Enabled == false and Script.TargetSettings.Player or  Script.TargetSettings.Part) then
+        Script.TargetSettings.Player = nil
         Script.TargetSettings.Part = nil
     end
 
-    if (Axis.Combat.SilentAim.Trace) then
+    if ( Axis.Visual.Esp.Enabled) then
+        FullyDisblaed = false
+        for Player, Information in next, Script.PlayersLibraryEsp do
 
-        TraceSilentAim.Color = Axis.Combat.SilentAim.TraceColor
-        TraceSilentAim.Thickness = Axis.Combat.SilentAim.TraceThickness
-        TraceSilentAim.Transparency = Axis.Combat.SilentAim.TraceTransparency
+            local Esp = Information.Esp
+            local DisplayName = Information.DisplayName
+            local Distance = Information.Distance
+            local HealthBar = Information.HealthBar
+            local Health = Information.Health
+
+            local ArmorBar =Information.ArmorBar
+            local Armor = Information.Armor
+
+            if Player.Character and Player.Character:FindFirstChild('Head') and Player.Character:FindFirstChild('Humanoid') then
+                local PosHRp, onscreen = Camera:WorldToViewportPoint(Player.Character.HumanoidRootPart.Position)
+                local HeadPos = Camera:WorldToViewportPoint(Player.Character.Head.Position)
+                local DistanceFromClient =  if L_Player.Character ~= nil and L_Player.Character:FindFirstChild('HumanoidRootPart') then (L_Player.Character.HumanoidRootPart.Position - Player.Character.HumanoidRootPart.Position).Magnitude else 0 
+
+                local distance = PosHRp.Z
+                local scale = 1000/ distance
+                local size = math.clamp(scale, 2, math.huge)
+                local TextSize = math.clamp(scale, 14, 18) 
+
+                for Name, EspAny : any in next, Esp.Normal2D do
+                    if Name ~= 'FakeFilled' then
+                        EspAny.Transparency = Axis.Visual.Esp.BoxTransparency
+                        EspAny.Visible = (onscreen and Axis.Visual.Esp.Box and L_Player.Character ~= nil) or false
+                    else
+                        EspAny.Filled = (onscreen and Axis.Visual.Esp.BoxFilled)
+                        EspAny.Transparency = Axis.Visual.Esp.BoxFilledTransparency
+                        EspAny.Visible = (onscreen and Axis.Visual.Esp.BoxFilled and L_Player.Character ~= nil) or false
+                    end
+
+                    EspAny.PointA = Vector2.new(PosHRp.X + size, PosHRp.Y + size*2)
+                    EspAny.PointB = Vector2.new(PosHRp.X - size, PosHRp.Y + size*2)
+                    EspAny.PointC = Vector2.new(PosHRp.X - size, PosHRp.Y - size*2)
+                    EspAny.PointD = Vector2.new(PosHRp.X + size, PosHRp.Y - size*2)
+                end
 
 
-        if Script.TargetSettings.Part then
-            local Position, onScreen = Camera:WorldToViewportPoint(Script.TargetSettings.Part.Position)
-            if onScreen then
-                local MouseLocation = UserInputService:GetMouseLocation()
-                TraceSilentAim.Visible = true
-                TraceSilentAim.From = Vector2.new(MouseLocation.X, MouseLocation.Y)
-                TraceSilentAim.To = Vector2.new(Position.X, Position.Y)
-            else
-                TraceSilentAim.Visible = false
+                local WholeSize:number = (Vector2.new(0, PosHRp.Y - size*2) - Vector2.new(0, PosHRp.Y + size*2)).Magnitude
+                local HealthOffsets = Player.Character:FindFirstChild('Humanoid').Health/Player.Character:FindFirstChild('Humanoid').MaxHealth
+
+
+ 
+                HealthBar.From = Vector2.new(PosHRp.X + (size + math.clamp(size, 2, 4)), PosHRp.Y + size*2)
+                HealthBar.To = Vector2.new(PosHRp.X + (size + math.clamp(size, 2, 4)), PosHRp.Y - size*2)
+
+                Health.From = Vector2.new(PosHRp.X + (size + math.clamp(size, 2, 4)), PosHRp.Y + size*2)
+                Health.To = Vector2.new(PosHRp.X + (size + math.clamp(size, 2, 4)),  PosHRp.Y + size*2 - (WholeSize * HealthOffsets))
+
+                HealthBar.Visible = (onscreen and Axis.Visual.Esp.Health and L_Player.Character ~= nil) or false
+                Health.Visible = (onscreen and Axis.Visual.Esp.Health and L_Player.Character ~= nil) or false
+
+
+                DisplayName.Visible = (onscreen and Axis.Visual.Esp.Name and L_Player.Character ~= nil) or false
+                Distance.Visible = (onscreen and Axis.Visual.Esp.Distance and L_Player.Character ~= nil) or false
+
+                Distance.Text = math.floor(DistanceFromClient)..' M'
+                DisplayName.Text = Player.DisplayName
+
+                DisplayName.Position = Vector2.new(PosHRp.X, PosHRp.Y + size*2 )
+                Distance.Position = Vector2.new(
+                    PosHRp.X, if Axis.Visual.Esp.Name then PosHRp.Y + (size*2 + 13) else PosHRp.Y + size*2
+                )
+
+                if Auto__Scale__Text then
+                    DisplayName.Size = TextSize
+                    Distance.Size = TextSize
+                end
+
+
+                local ArmorBody = (Player.Character:FindFirstChild('BodyEffects') ~= nil and Player.Character:FindFirstChild('BodyEffects').Armor.Value) or 0
+                local ConfientArmor = ArmorBody/200
+                local ScaledConfief = WholeSize * ConfientArmor
+
+                ArmorBar.From = Vector2.new(PosHRp.X + if Axis.Visual.Esp.Health then (size + math.clamp(size, 5, 6)) else (size + math.clamp(size, 2, 4)), PosHRp.Y + size*2)
+                ArmorBar.To = Vector2.new(PosHRp.X + if Axis.Visual.Esp.Health then (size + math.clamp(size, 5, 6)) else (size + math.clamp(size, 2, 4)), PosHRp.Y - size*2)
+
+                Armor.From = Vector2.new(PosHRp.X + if Axis.Visual.Esp.Health then (size + math.clamp(size, 5, 6)) else (size + math.clamp(size, 2, 4)), PosHRp.Y + size*2)
+                Armor.To = Vector2.new(PosHRp.X + if Axis.Visual.Esp.Health then (size + math.clamp(size, 5, 6)) else (size + math.clamp(size, 2, 4)),  PosHRp.Y + size*2 - ScaledConfief)
+
+                ArmorBar.Visible = (onscreen and Axis.Visual.Esp.Armor and L_Player.Character ~= nil) or false
+                Armor.Visible = (onscreen and Axis.Visual.Esp.Armor and L_Player.Character ~= nil) or false
             end
-        else
-            TraceSilentAim.Visible = false
         end
-    end
-
-    if (Axis.Combat.SilentAim.Circle) then
-        CirclePlayer.Radius = Axis.Combat.SilentAim.CircleRadius
-        CirclePlayer.Transparency = Axis.Combat.SilentAim.CircleTransparency
-        CirclePlayer.Color = Axis.Combat.SilentAim.CircleColor
-
-        if Script.TargetSettings.Part then
-            local Position, onScreen = Camera:WorldToViewportPoint(Script.TargetSettings.Part.Position)
-            if onScreen then
-                CirclePlayer.Visible = true
-                CirclePlayer.Position = Vector2.new(Position.X, Position.Y)
-            else
-                CirclePlayer.Visible = false
-            end
-
-        else
-            CirclePlayer.Visible = false
-        end
-
     else
-        CirclePlayer.Visible = false
+        if FullyDisblaed == false then
+            FullyDisblaed = true
+
+            for Player, Information in next, Script.PlayersLibraryEsp do
+
+                local Esp = Information.Esp
+                local DisplayName = Information.DisplayName
+                local Distance = Information.Distance
+                local HealthBar = Information.HealthBar
+                local Health = Information.Health
+
+                local ArmorBar =Information.ArmorBar
+                local Armor = Information.Armor
+
+                for Name, EspAny : any in next, Esp.Normal2D do
+                    EspAny.Visible = false
+                end
+
+                
+                HealthBar.Visible =  false
+                Health.Visible =  false
+
+
+                DisplayName.Visible =  false
+                Distance.Visible =  false
+
+
+                ArmorBar.Visible = false
+                Armor.Visible = false
+
+            end
+        end
     end
 
-
-    if (Axis.Visual.Esp.Enabled) then
-
-
-        if (Axis.Visual.Esp.BoxEnabled) then
-            for Plr : Player, Box : any in next, Script.Esp.PlayersQuad do
-                local Character = Plr.Character
-                if not Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[Plr.Name] then
-                    if Character and Character:FindFirstChild('UpperTorso') and Character:FindFirstChild('Humanoid') and Character:FindFirstChild('Head') then
-                        local HumPos, OnScreen = Camera:WorldToViewportPoint(Character.UpperTorso.Position)
-                        if OnScreen then
-                            local Head = Camera:WorldToViewportPoint(Character.Head.Position)
-                            local Distance = math.clamp((Vector2.new(Head.X, Head.Y) - Vector2.new(HumPos.X, HumPos.Y)).Magnitude, 2, math.huge)
-                            local function Size(item)
-                                item.PointA = Vector2.new(HumPos.X + Distance, HumPos.Y - Distance*2)
-                                item.PointB = Vector2.new(HumPos.X - Distance, HumPos.Y - Distance*2)
-                                item.PointC = Vector2.new(HumPos.X - Distance, HumPos.Y + Distance*2)
-                                item.PointD = Vector2.new(HumPos.X + Distance, HumPos.Y + Distance*2)
-                            end
-                            local Normal = Box[1]
-                            local BlackBox = Box[2]
-                            Size(Normal)
-                            Size(BlackBox)
-                            Normal.Visible = true
-                            BlackBox.Visible = true
-
-                        else
-                            Box[1].Visible = false
-                            Box[2].Visible = false
-
-                        end
-                    end
-                else
-                    if Box[1].Visible == true then
-                        Box[1].Visible = false
-                    end
-
-                    if Box[2].Visible == true then
-                        Box[2].Visible = false
-                    end
-                end
+    if (Axis.Combat.SilentAim.Visual.Circle.Enabled) then
+        if Script.TargetSettings.Part then
+            local pos, onScreen = Camera:WorldToViewportPoint(Script.TargetSettings.Part.Position)
+            if onScreen then
+                Script.Drawing.CircleTarget.Normal.Visible = true
+                Script.Drawing.CircleTarget.Big.Visible = true
+                Script.Drawing.CircleTarget.Filled.Visible = Axis.Combat.SilentAim.Visual.Circle.Filled
+                Script.Drawing.CircleTarget.Big.Position = Vector2.new(pos.X, pos.Y)
+                Script.Drawing.CircleTarget.Normal.Position = Vector2.new(pos.X, pos.Y)
+                Script.Drawing.CircleTarget.Filled.Position = Vector2.new(pos.X, pos.Y)
+            else
+                Script.Drawing.CircleTarget.Normal.Visible = false
+                Script.Drawing.CircleTarget.Big.Visible = false
+                Script.Drawing.CircleTarget.Filled.Visible = false
             end
         else
-            for Plr : Player, Box : any in next, Script.Esp.PlayersQuad do
-                if Box[1].Visible ~= false then
-                    Box[1].Visible = false
-                end
-                if Box[2].Visible ~= false then
-                    Box[2].Visible = false
-                end
+            Script.Drawing.CircleTarget.Normal.Visible = false
+            Script.Drawing.CircleTarget.Big.Visible = false
+            Script.Drawing.CircleTarget.Filled.Visible = false
+        end
+
+        Script.Drawing.CircleTarget.Normal.Transparency = Axis.Combat.SilentAim.Visual.Circle.Transparency
+        Script.Drawing.CircleTarget.Big.Transparency = Script.Drawing.CircleTarget.Normal.Transparency
+        Script.Drawing.CircleTarget.Filled.Filled = Axis.Combat.SilentAim.Visual.Circle.Filled
+        Script.Drawing.CircleTarget.Filled.Transparency = Axis.Combat.SilentAim.Visual.Circle.FilledTransparency
+        Script.Drawing.CircleTarget.Filled.Radius = Axis.Combat.SilentAim.Visual.Circle.Radius
+        Script.Drawing.CircleTarget.Normal.Radius = Axis.Combat.SilentAim.Visual.Circle.Radius
+        Script.Drawing.CircleTarget.Big.Radius = Script.Drawing.CircleTarget.Normal.Radius
+
+    end
+
+    if (Axis.Combat.SilentAim.UseFov) then
+
+        for name, data in next, Script.Drawing.SilentAimLibrary do
+            if data.Visible == true then
+                data.Position = Vector2.new(MouseLocation.X, MouseLocation.Y)
+                data.Radius = Axis.Combat.SilentAim.FovRadius
             end
         end
 
+        Script.Drawing.SilentAimLibrary.Normal.Visible = Axis.Combat.SilentAim.UseFov
+        Script.Drawing.SilentAimLibrary.Big.Visible = Axis.Combat.SilentAim.UseFov
+        Script.Drawing.SilentAimLibrary.Normal.Color = Axis.Combat.SilentAim.FovColor
 
-        if (Axis.Visual.Esp.HealthEnanled) then
-            for Plr : Player, table : any in next, Script.Esp.HealthEsp do
-                local Character = Plr.Character
-                if not Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[Plr.Name] then 
-                    if Character and Character:FindFirstChild('UpperTorso') and Character:FindFirstChild('HumanoidRootPart') and Character:FindFirstChild('Humanoid') and Character:FindFirstChild('Head') then
-                        local HumPos, OnScreen = Camera:WorldToViewportPoint(Character.UpperTorso.Position)
-                        if OnScreen then
-                            local Head = Camera:WorldToViewportPoint(Character.Head.Position)
-                            local Distance = math.clamp((Vector2.new(Head.X, Head.Y) - Vector2.new(HumPos.X, HumPos.Y)).Magnitude, 2, math.huge)
-                            local d = (Vector2.new(HumPos.X - Distance, HumPos.Y - Distance*2) - Vector2.new(HumPos.X - Distance, HumPos.Y + Distance*2)).magnitude 
-                            local healthoffset = Plr.Character.Humanoid.Health/Plr.Character.Humanoid.MaxHealth * d
-
-                            local HealthBox1 = table[1]
-                            local HealthBox2 = table[2]
-
-                            HealthBox2.Visible = true
-                            HealthBox1.Visible = true
-
-                            HealthBox2.From = Vector2.new(HumPos.X - Distance - 4, HumPos.Y + Distance*2)
-                            HealthBox2.To = Vector2.new(HumPos.X - Distance - 4, HumPos.Y + Distance*2 - healthoffset)
-
-                            HealthBox1.From = Vector2.new(HumPos.X - Distance - 4, HumPos.Y + Distance*2)
-                            HealthBox1.To = Vector2.new(HumPos.X - Distance - 4, HumPos.Y - Distance*2)
-
-                            local green = Color3.fromRGB(0, 255, 0)
-                            local red = Color3.fromRGB(255, 0, 0)
-
-                            HealthBox2.Color = red:lerp(green, Plr.Character.Humanoid.Health/Plr.Character.Humanoid.MaxHealth);
-                        else
-                            table[1].Visible = false
-                            table[2].Visible = false
-                        end
-                    end
-                else
-                    if table[1].Visible == true then
-                        table[1].Visible = false
-                    end
-
-                    if table[2].Visible == true then
-                        table[2].Visible = false
-                    end
-                end
-            end
-        else
-            for Plr : Player, table : any in next, Script.Esp.HealthEsp do
-
-                if table[1].Visible ~= false then
-                    table[1].Visible = false
-                end
-
-                if table[2].Visible ~= false then
-                    table[2].Visible = false
-                end
-
-            end
-        end
-
-        if (Axis.Visual.Esp.NameEnabled) then
-            for Plr : Player, Text : any in next, Script.Esp.NameEsp do
-                local l_Char = Plr.Character
-                if not Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[Plr.Name] then 
-                    if l_Char and l_Char:FindFirstChild('HumanoidRootPart') then
-                        local pos, onScreen = Camera:WorldToViewportPoint(l_Char.HumanoidRootPart.Position)
-                        if onScreen then
-
-                            if Auto__Scale__Text then
-                                local distance = (Vector3.new(Camera.CFrame.X, Camera.CFrame.Y, Camera.CFrame.Z) - Plr.Character.HumanoidRootPart.Position).magnitude
-                                local textsize = math.clamp(1/distance*1000, 2, 30) 
-                                Text.Size = textsize
-                            end
-
-                            Text.Position = Vector2.new(pos.X, pos.Y + 5)
-                            Text.Text  = Plr.Name
-                            Text.Visible = true
-                        else
-                            Text.Visible = false
-                        end
-                    end
-                elseif Text.Visible == true then
-                    Text.Visible = false
-                end
-            end
-        else
-            for Plr : Player, Text : any in next, Script.Esp.NameEsp do
-                if Text.Visible ~= false then
-                    Text.Visible = false
-                end
-            end
-        end
-
+        Script.Drawing.SilentAimLibrary.Filled.Visible = Axis.Combat.SilentAim.Visual.Filled.Enabled
+        Script.Drawing.SilentAimLibrary.Filled.Color = Axis.Combat.SilentAim.Visual.Filled.Color
+        Script.Drawing.SilentAimLibrary.Filled.Transparency = Axis.Combat.SilentAim.Visual.Filled.Transparency
     else
+        Script.Drawing.SilentAimLibrary.Filled.Visible = false
+        Script.Drawing.SilentAimLibrary.Normal.Visible = false
+        Script.Drawing.SilentAimLibrary.Big.Visible  = false
 
-        for Plr : Player, table : any in next, Script.Esp.HealthEsp do
-            if table[1].Visible ~= false then
-                table[1].Visible = false
-            end
-            if table[2].Visible ~= false then
-                table[2].Visible = false
-            end
-        end
-
-        for Plr : Player, Box : any in next, Script.Esp.PlayersQuad do
-            if Box[1].Visible ~= false then
-                Box[1].Visible = false
-            end
-            if Box[2].Visible ~= false then
-                Box[2].Visible = false
-            end
-        end
-
-        for Plr : Player, Text : any in next, Script.Esp.NameEsp do
-            if Text.Visible ~= false then
-                Text.Visible = false
-            end
-        end
 
     end
+
+    if (Axis.Combat.SilentAim.Visual.Trace.Enabled) then
+        if Script.TargetSettings.Part then
+
+            Script.Drawing.LineLibrary.Normal.Color = Axis.Combat.SilentAim.Visual.Trace.Color
+            Script.Drawing.LineLibrary.Normal.Thickness = Axis.Combat.SilentAim.Visual.Trace.Thickness
+            Script.Drawing.LineLibrary.Big.Thickness = Script.Drawing.LineLibrary.Normal.Thickness + 1
+
+            local pos, onScreen = Camera:WorldToViewportPoint(Script.TargetSettings.Part.Position)
+            if onScreen then
+                for name , data in next, Script.Drawing.LineLibrary do
+                    data.Visible = true
+                    data.From = Vector2.new(pos.X, pos.Y)
+                    data.To = Vector2.new(MouseLocation.X, MouseLocation.Y)
+                end
+            else
+                for name , data in next, Script.Drawing.LineLibrary do
+                    data.Visible = false
+                end
+            end
+        else
+            for name , data in next, Script.Drawing.LineLibrary do
+                data.Visible = false
+            end
+        end
+    else
+        for name , data in next, Script.Drawing.LineLibrary do
+            data.Visible = false
+        end
+    end
+
+    if (Axis.Visual.Lighting.Ambiend) then
+        Lighting.Ambient = Axis.Visual.Lighting.AmbiendColor
+    end
+
+    if (Axis.Visual.Lighting.ColorShift_Bottom) then
+        Lighting.ColorShift_Bottom = Axis.Visual.Lighting.ColorShift_BottomColor
+    end
+
+    if (Axis.Visual.Lighting.ColorShift_Top) then
+        Lighting.ColorShift_Top = Axis.Visual.Lighting.ColorShift_TopColor
+    end
+
+    if (Axis.Visual.Lighting.Brightness) then
+        Lighting.Brightness = Axis.Visual.Lighting.BrightnessVl3
+    end
+
+    if (Axis.Visual.Lighting.OutDoorAmbiend) then
+        Lighting.OutdoorAmbient = Axis.Visual.Lighting.OutDoorAmbiendColor
+    end
+
+    if (Axis.Visual.Lighting.Shadow) then
+        Lighting.ShadowSoftness = Axis.Visual.Lighting.ShadowSlider
+        Lighting.ShadowColor = Axis.Visual.Lighting.ShadowColor
+    end
+
+    Lighting.Technology = Enum.Technology[tostring(Axis.Visual.Lighting.Technology)]
+    Lighting.LightingStyle = Enum.LightingStyle[tostring(Axis.Visual.Lighting.LightingStyle)]
+    Lighting.GlobalShadows = Axis.Visual.Lighting.GlobalShadow
+
+
+
 end)
 
 
@@ -822,12 +918,18 @@ local Tabs = {
 
 local SilentAimTab = Tabs.Combat:AddLeftGroupbox('Silent aim')
 local SilentAimVisual = Tabs.Combat:AddLeftGroupbox('Silent aim Visual')
+local SilentAimUtility = Tabs.Combat:AddLeftGroupbox('Utility')
+
 local CameraTab = Tabs.Combat:AddRightGroupbox('Camera')
 
+local LegitUtility = Tabs.Miscs:AddLeftGroupbox('Legit Utility');
+
 local whitelisttab = Tabs.Miscs:AddLeftGroupbox('Whitelist');
+local GunMacro = Tabs.Miscs:AddLeftGroupbox('GunMacro');
 
 local Esp = Tabs.Visuals:AddLeftGroupbox('Esp');
-
+local Lighting  = Tabs.Visuals:AddRightGroupbox('Lighting');
+local ColorCorrection  = Tabs.Visuals:AddRightGroupbox('Color Correction');
 
 
 SilentAimTab:AddToggle('SilentAimEnabled', {
@@ -846,20 +948,14 @@ SilentAimTab:AddToggle('SilentAimEnabled', {
     NoUI = false,
 
     Callback = function(Value)
-        Axis.Combat.SilentAim.Enabled = not Axis.Combat.SilentAim.Enabled
-        Toggles.SilentAimEnabled:SetValue(Axis.Combat.SilentAim.Enabled)
-        if Axis.Combat.SilentAim.SelectPriority == 'Toggled' then
-            if Axis.Combat.SilentAim.Enabled == true then
-                local Ignore, Player = GetClosetTarget()
-                Script.TargetSettings.Player = Player
-            else
-                Script.TargetSettings.Player = nil
-            end
-        end
+
     end,
 
     ChangedCallback = function(New)
-        
+        NewKeybindCooldown = true
+        Axis.Combat.SilentAim.Keybind = New
+        RunService.RenderStepped:Wait()
+        NewKeybindCooldown = false
     end
 });
 
@@ -1102,7 +1198,7 @@ CameraTab:AddToggle('GrabbedCheckCamera', {
 CameraTab:AddDropdown('TargetPartCamera', {
 
     Values = { 'Head', 'UpperTorso', 'HumanoidRootPart', 'LowerTorso', 'LeftUpperArm', 'RightUpperArm', 'LeftLowerArm', 'RightLowerArm', 'LeftHand', 'RightHand', 'LeftUpperLeg', 'RightUpperLeg', 'LeftLowerLeg', 'RightLowerLeg', 'LeftFoot', 'RightFoot' },
-    Default = 3,
+    Default = 1,
     Multi = false,
     Text = 'Part Priority',
 
@@ -1174,230 +1270,8 @@ CameraTab:AddSlider('MaxDistanceCamera', {
     end
 });
 
-SilentAimVisual:AddLabel('Fov Color'):AddColorPicker('ColorPicker', {
-    Default = Color3.fromRGB(87, 240, 146),
-    Title = 'Choose Fov Color',
-    Transparency = 0,
 
-    Callback = function(Value)
-        Axis.Combat.SilentAim.FovColor = Value
-    end
-})
-
-SilentAimVisual:AddToggle('FilledFov', {
-    Text = 'Filled Fov';
-    Default = false;
-
-    Callback = function(vf)
-        Axis.Combat.SilentAim.FilledFov = vf
-    end
-})
-
-SilentAimVisual:AddToggle('PulseFov', {
-    Text = 'Pulse Fov';
-    Default = false;
-
-    Callback = function(vf)
-        Axis.Combat.SilentAim.PulseFov = vf
-    end
-})
-
-SilentAimVisual:AddSlider('Thickness', {
-    Text = 'Thickness',
-    Default = 1,
-    Min = 0,
-    Max = 8,
-    Rounding = 0,
-    Compact = false,
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.FovThickness = Value
-    end
-});
-
-SilentAimVisual:AddSlider('Pulse', {
-    Text = 'Pulse Ammout',
-    Default = 8,
-    Min = 0,
-    Max = 30,
-    Rounding = 0,
-    Compact = false,
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.PulseAmmout = Value
-    end
-});
-
-SilentAimVisual:AddSlider('PulseSpeed', {
-    Text = 'Pulse Speed',
-    Default = 3,
-    Min = 0,
-    Max = 10,
-    Rounding = 0,
-    Compact = false,
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.PulseSpeed = Value
-    end
-});
-
-SilentAimVisual:AddSlider('FovTransparency', {
-    Text = 'Fov Transparency',
-    Default = 1,
-    Min = 0,
-    Max = 1,
-    Rounding = 1,
-    Compact = false,
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.FovTransparency = Value
-    end
-});
-
-SilentAimVisual:AddToggle('Trace', {
-    Text = 'Trace';
-    Default = false;
-
-    Callback = function(vf)
-        Axis.Combat.SilentAim.Trace = vf
-    end
-}):AddColorPicker('TraceColor', {
-    Default = Color3.fromRGB(87, 240, 146),
-    Title = 'Choose Trace Color',
-    Transparency = 0,
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.TraceColor = Value
-    end
-})
-
-SilentAimVisual:AddToggle('Dot', {
-    Text = 'Dot';
-    Default = false;
-
-    Callback = function(vf)
-        Axis.Combat.SilentAim.Dot = vf
-    end
-}):AddColorPicker('DotColor', {
-    Default = Color3.fromRGB(87, 240, 146),
-    Title = 'Choose Dot Color',
-    Transparency = 0,
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.DotColor = Value
-    end
-})
-
-SilentAimVisual:AddToggle('Circle', {
-    Text = 'Circle';
-    Default = false;
-
-    Callback = function(vf)
-        Axis.Combat.SilentAim.Circle = vf
-    end
-}):AddColorPicker('Circle', {
-    Default = Color3.fromRGB(87, 240, 146),
-    Title = 'Choose Circle Color',
-    Transparency = 0,
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.CircleColor = Value
-    end
-})
-
-
-SilentAimVisual:AddSlider('TraceTransparency', {
-    Text = 'Trace Transparency',
-    Default = 1,
-    Min = 0,
-    Max = 1,
-    Rounding = 1,
-    Compact = false,
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.TraceTransparency = Value
-    end
-});
-
-SilentAimVisual:AddSlider('TraceThickness', {
-    Text = 'Trace Thickness',
-    Default = 1,
-    Min = 0,
-    Max = 8,
-    Rounding = 1,
-    Compact = false,
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.TraceThickness = Value
-    end
-});
-
-SilentAimVisual:AddSlider('DotRadius', {
-    Text = 'Dot Radius',
-    Default = 8,
-    Min = 0,
-    Max = 28,
-    Rounding = 1,
-    Compact = false,
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.DotRadius = Value
-    end
-});
-
-
-SilentAimVisual:AddSlider('DotTransparency', {
-    Text = 'Dot Transparency',
-    Default = 1,
-    Min = 0,
-    Max = 1,
-    Rounding = 1,
-    Compact = false,
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.DotTransparency = Value
-    end
-});
-
-SilentAimVisual:AddSlider('Circle', {
-    Text = 'Circle Radius',
-    Default = 15,
-    Min = 0,
-    Max = 50,
-    Rounding = 1,
-    Compact = false,
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.CircleRadius = Value
-    end
-});
-
-SilentAimVisual:AddSlider('CircleTransparency', {
-    Text = 'Circle Transparency',
-    Default = 1,
-    Min = 0,
-    Max = 1,
-    Rounding = 1,
-    Compact = false,
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.CircleTransparency = Value
-    end
-});
-
-SilentAimVisual:AddDropdown('Trace From', {
-
-    Values = { 'From Cursor', 'From Center ' , 'From Gun'},
-    Default = 1,
-    Multi = false,
-    Text = 'Trace Priority',
-
-    Callback = function(Value)
-        Axis.Combat.SilentAim.TraceFrom = Value
-    end
-});
-
-whitelisttab:AddToggle('WLEnabled', {
+--[[whitelisttab:AddToggle('WLEnabled', {
     Text = 'Enabled';
     Default = false;
 
@@ -1429,111 +1303,736 @@ whitelisttab:AddDropdown('PlayerList', {
             Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[index] = value
         end
     end
+});]]--
+
+
+SilentAimVisual:AddLabel('Fov Color'):AddColorPicker('FovColor', {
+    Default = Color3.fromRGB(247, 204, 241),
+    Title = 'Fov color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.FovColor = Value
+    end
+})
+
+
+SilentAimVisual:AddToggle('FilledEnabled', {
+    Text = 'Filled Enabled';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.Visual.Filled.Enabled = vf
+    end
+}):AddColorPicker('FilledColor', {
+    Default = Color3.fromRGB(247, 204, 241),
+    Title = 'Filled Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.Visual.Filled.Color = Value
+    end
+})
+
+SilentAimVisual:AddToggle('PulseFov', {
+    Text = 'Pulse Enabled';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.Visual.Pulse.Enabled = vf
+    end
+});
+
+
+SilentAimVisual:AddSlider('FilledTransparency', {
+    Text = 'Filled Transparency',
+    Default = 0.15,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.Visual.Filled.Transparency = Value
+    end
+});
+ 
+SilentAimVisual:AddSlider('PulseAmmout', {
+    Text = 'Pulse Ammout',
+    Default = 15,
+    Min = 0,
+    Max = 65,
+    Rounding = 0,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.Visual.Pulse.Ammout = Value
+    end
 });
 
 
 
+SilentAimVisual:AddSlider('PulseSpeed', {
+    Text = 'Pulse Speed',
+    Default = 4,
+    Min = 0,
+    Max = 15,
+    Rounding = 0,
+    Compact = false,
 
-Esp:AddToggle('EspEnabled', {
+    Callback = function(Value)
+        Axis.Combat.SilentAim.Visual.Pulse.Speed = Value
+    end
+});
+
+SilentAimVisual:AddToggle('Trace', {
+    Text = 'Trace Enabled';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.Visual.Trace.Enabled = vf
+    end
+}):AddColorPicker('TraceColor', {
+    Default = Color3.fromRGB(247, 204, 241),
+    Title = 'Trace Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.Visual.Trace.Color = Value
+    end
+})
+
+SilentAimVisual:AddToggle('Circle', {
+    Text = 'Circle Enabled';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.Visual.Circle.Enabled = vf
+    end
+}):AddColorPicker('CircleColor', {
+    Default = Color3.fromRGB(243, 207, 207),
+    Title = 'Circle Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.Visual.Circle.Color = Value
+    end
+})
+
+
+SilentAimVisual:AddToggle('FilledEnabled', {
+    Text = 'Filled Enabled';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Combat.SilentAim.Visual.Circle.Filled = vf
+    end
+}):AddColorPicker('CircleColor', {
+    Default = Axis.Combat.SilentAim.Visual.Circle.FilledColor,
+    Title = 'Trace Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.Visual.Circle.FilledColor = Value
+    end
+})
+
+SilentAimVisual:AddSlider('TraceThickness', {
+    Text = 'Trace Thickness',
+    Default = Axis.Combat.SilentAim.Visual.Trace.Thickness,
+    Min = 0,
+    Max = 5,
+    Rounding = 2,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.Visual.Trace.Thickness = Value
+    end
+});
+
+
+SilentAimVisual:AddSlider('CirclrRadius', {
+    Text = 'Circle Radius',
+    Default = Axis.Combat.SilentAim.Visual.Circle.Radius,
+    Min = 0,
+    Max = 150,
+    Rounding = 0,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.Visual.Circle.Radius = Value
+    end
+});
+
+SilentAimVisual:AddSlider('CirclrTransparency', {
+    Text = 'Circle Transparency',
+    Default = Axis.Combat.SilentAim.Visual.Circle.Transparency,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.Visual.Circle.Transparency = Value
+    end
+});
+
+SilentAimVisual:AddSlider('FilledTransparency', {
+    Text = 'Filled Transparency',
+    Default = Axis.Combat.SilentAim.Visual.Circle.FilledTransparency,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Combat.SilentAim.Visual.Circle.FilledTransparency = Value
+    end
+});
+
+
+--[[GunMacro:AddToggle('GunMacroEnabled', {
     Text = 'Enabled';
     Default = false;
 
+    Callback = function(vf)
+        Axis.Miscs.GunMacro.Enabled = vf
+    end
+}):AddKeyPicker('GunMacroKeybind', {
+    Default = 'Fn',
+    SyncToggleState = false,
+    Mode = 'Toggle',
+
+    Text = '',
+    NoUI = false,
+
+    Callback = function(Value)
+
+    end,
+
+    ChangedCallback = function(New)
+        NewKeybindCooldown = true
+        Axis.Miscs.GunMacro.Keybind = New
+        RunService.RenderStepped:Wait()
+        NewKeybindCooldown = false
+    end
+});
+
+GunMacro:AddToggle('AutoShootEnabled', {
+    Text = 'AutoShoot';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Miscs.GunMacro.AutoShoot = vf
+    end
+});]]--
+
+
+
+SilentAimUtility:AddDropdown('SilentAimMethod', {
+
+    Values = { 'ReWrite Mouse', 'RaycastManipulation' },
+    Default = 1,
+    Multi = false,
+    Text = 'Method Target',
+
+    Callback = function(Value)
+
+    end
+});
+
+LegitUtility:AddToggle('AutoShootEnabled', {
+    Text = 'Auto Eat';
+    Default = false;
+
+    Callback = function(vf)
+
+    end
+});
+
+LegitUtility:AddToggle('AutoShootEnabled', {
+    Text = 'Auto Stomp';
+    Default = false;
+
+    Callback = function(vf)
+
+    end
+});
+
+LegitUtility:AddToggle('AutoShootEnabled', {
+    Text = 'Auto Buy Armor';
+    Default = false;
+
+    Callback = function(vf)
+
+    end
+});
+
+LegitUtility:AddToggle('AutoShootEnabled', {
+    Text = 'Auto Buy Food';
+    Default = false;
+
+    Callback = function(vf)
+        
+    end
+});
+
+LegitUtility:AddSlider('AutoBuyDistance', {
+    Text = 'Auto Buy Distance',
+    Default = Axis.Miscs.LegitUtility.AutoBuyDistance,
+    Min = 0,
+    Max = 9,
+    Rounding = 2,
+    Compact = false,
+
+    Callback = function(Value)
+
+    end
+});
+
+LegitUtility:AddDropdown('AutoBuyFoods', {
+
+    Values = { 'ReWrite Mouse', 'RaycastManipulation' },
+    Default = 0,
+    Multi = true,
+    Text = 'Choose Food To Buy',
+
+    Callback = function(Value)
+
+    end
+});
+
+Lighting:AddToggle('Ambiend', {
+    Text = 'Ambiend';
+    Default = Axis.Visual.Lighting.Ambiend;
+
+    Callback = function(vf)
+        Axis.Visual.Lighting.Ambiend = vf
+    end
+}):AddColorPicker('AmbiendColor', {
+    Default = Axis.Visual.Lighting.AmbiendColor,
+    Title = 'Ambiend Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Visual.Lighting.AmbiendColor = Value
+    end
+})
+
+Lighting:AddToggle('outdoorAmbiend', {
+    Text = 'OutDoorAmbiend';
+    Default = Axis.Visual.Lighting.OutDoorAmbiend;
+
+    Callback = function(vf)
+        Axis.Visual.Lighting.OutDoorAmbiend = vf
+    end
+}):AddColorPicker('outdoorAmbiendColor', {
+    Default = Axis.Visual.Lighting.OutDoorAmbiendColor,
+    Title = 'OutDoorAmbiend Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Visual.Lighting.OutDoorAmbiendColor = Value
+    end
+})
+
+
+Lighting:AddToggle('ColorShift_Bottom', {
+    Text = 'ColorShift_Bottom';
+    Default = Axis.Visual.Lighting.ColorShift_Bottom;
+
+    Callback = function(vf)
+        Axis.Visual.Lighting.ColorShift_Bottom = vf
+    end
+}):AddColorPicker('ColorShift_BottomColor', {
+    Default = Axis.Visual.Lighting.ColorShift_BottomColor,
+    Title = 'ColorShift_Bottom Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Visual.Lighting.ColorShift_BottomColor = Value
+    end
+})
+
+
+
+Lighting:AddToggle('ColorShift_Top', {
+    Text = 'ColorShift_Top';
+    Default = Axis.Visual.Lighting.ColorShift_Top;
+
+    Callback = function(vf)
+
+    end
+}):AddColorPicker('ColorShift_TopColor', {
+    Default = Axis.Visual.Lighting.ColorShift_TopColor,
+    Title = 'ColorShift_Top Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Visual.Lighting.ColorShift_TopColor = Value
+    end
+})
+
+local Shadow = Lighting:AddToggle('Shadow', {
+    Text = 'Shadow';
+    Default = Axis.Visual.Lighting.Shadow;
+
+    Callback = function(vf)
+        Axis.Visual.Lighting.Shadow =vf
+    end
+}):AddColorPicker('ShadowColor', {
+    Default = Axis.Visual.Lighting.ShadowColor,
+    Title = 'Shadow Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Visual.Lighting.ShadowColor = Value
+    end
+})
+local FogDepBox = Lighting:AddDependencyBox()
+FogDepBox:AddSlider('ShadowSoftness', {
+    Text = 'Shadow Softness',
+    Default = Axis.Visual.Lighting.ShadowSlider,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Compact = true,
+
+    Callback = function(Value)
+        Axis.Visual.Lighting.ShadowSlider=Value
+    end
+});
+
+FogDepBox:SetupDependencies({
+    { Shadow, true } 
+})
+
+
+local FogToggled = Lighting:AddToggle('Fog', {
+    Text = 'Fog';
+    Default = Axis.Visual.Lighting.Fog;
+
+    Callback = function(vf)
+        Axis.Visual.Lighting.Fog =vf
+    end
+}):AddColorPicker('FogColor', {
+    Default = Axis.Visual.Lighting.FogColor,
+    Title = 'Fog Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Visual.Lighting.FogColor = Value
+    end
+})
+local FogDepBox = Lighting:AddDependencyBox()
+FogDepBox:AddSlider('FogStart', {
+    Text = 'FogStart',
+    Default = Axis.Visual.Lighting.FogStart,
+    Min = 0,
+    Max = 5000,
+    Rounding = 2,
+    Compact = true,
+
+    Callback = function(Value)
+        Axis.Visual.Lighting.FogStart=Value
+    end
+});
+FogDepBox:AddSlider('FogEnd', {
+    Text = 'FogEnd',
+    Default = Axis.Visual.Lighting.FogEnd,
+    Min = 0,
+    Max = 5000,
+    Rounding = 2,
+    Compact = true,
+
+    Callback = function(Value)
+        Axis.Visual.Lighting.FogEnd=Value
+    end
+});
+FogDepBox:SetupDependencies({
+    { FogToggled, true } 
+})
+
+
+local BrightnessLigtihng = Lighting:AddToggle('BrightnessLigtihng', {
+    Text = 'Brightness';
+    Default = Axis.Visual.Lighting.Brightness;
+
+    Callback = function(vf)
+        Axis.Visual.Lighting.Brightness = vf
+    end
+})
+local DepBox = Lighting:AddDependencyBox()
+DepBox:AddSlider('BrightnessSlider', {
+    Text = 'Brightness',
+    Default = Axis.Visual.Lighting.BrightnessVl3,
+    Min = 0,
+    Max = 2,
+    Rounding = 2,
+    Compact = true,
+
+    Callback = function(Value)
+        Axis.Visual.Lighting.BrightnessVl3 = Value
+    end
+});
+DepBox:SetupDependencies({
+    { BrightnessLigtihng, true } 
+})
+
+Lighting:AddToggle('GlobalShadow', {
+    Text = 'GlobalShadow';
+    Default = Axis.Visual.Lighting.GlobalShadow;
+
+    Callback = function(vf)
+        Axis.Visual.Lighting.GlobalShadow = vf
+    end
+})
+
+
+Lighting:AddDropdown('LightingStyle', {
+
+    Values = { 'Soft', 'Realistic' },
+    Default = 1,
+    Multi = false,
+    Text = 'Lighting Style',
+
+    Callback = function(Value)
+        Axis.Visual.Lighting.LightingStyle = Value
+    end
+});
+
+Lighting:AddDropdown('Technology', {
+
+    Values = { 'Voxel', 'Legacy', 'Future', 'ShadowMap','Unified', 'Compatibility'},
+    Default = 1,
+    Multi = false,
+    Text = 'Technology',
+
+    Callback = function(Value)
+        Axis.Visual.Lighting.Technology = Value
+    end
+});
+
+
+ColorCorrection:AddToggle('ColorCorrectionEnabled', {
+    Text = 'Enabled';
+    Default = Axis.Visual.ColorCorrection.Enabled;
+
+    Callback = function(vf)
+        Axis.Visual.ColorCorrection.Enabled = vf
+    end
+}):AddColorPicker('ColorCorrectionColor', {
+    Default = Axis.Visual.ColorCorrection.Color,
+    Title = 'Color Correction Color',
+    Transparency = 0,
+
+    Callback = function(Value)
+        Axis.Visual.ColorCorrection.Color = Value
+    end
+})
+
+
+ColorCorrection:AddSlider('SaturationColorCorrection', {
+    Text = 'Saturation',
+    Default = Axis.Visual.ColorCorrection.Saturation,
+    Min = 0,
+    Max = 2,
+    Rounding = 2,
+    Compact = true,
+
+    Callback = function(Value)
+        Axis.Visual.ColorCorrection.Saturation = Value
+    end
+});
+
+ColorCorrection:AddSlider('ContrastColorCorrection', {
+    Text = 'Contrast',
+    Default = Axis.Visual.ColorCorrection.Contrast,
+    Min = -2,
+    Max = 2,
+    Rounding = 2,
+    Compact = true,
+
+    Callback = function(Value)
+        Axis.Visual.ColorCorrection.Contrast = Value
+    end
+});
+
+ColorCorrection:AddSlider('BrightnessColorCorrection', {
+    Text = 'Brightness',
+    Default = Axis.Visual.ColorCorrection.Brightness,
+    Min = -2,
+    Max = 2,
+    Rounding = 2,
+    Compact = true,
+
+    Callback = function(Value)
+        Axis.Visual.ColorCorrection.Brightness = Value
+    end
+});
+
+
+--[[GunMacro:AddDropdown('GunMacroChoose', {
+
+    Values = { '[Double-Barrel SG]', '[Revolver]', '[TacticalShotgun]' },
+    Default = 0,
+    Multi = true,
+    Text = 'Guns',
+
+    Callback = function(Value)
+        Axis.Miscs.GunMacro.GunList = {}
+        
+        for index, value in next, Value do
+            Axis.Miscs.GunMacro.GunList[index] = value
+        end
+    end
+});]]--
+
+Esp:AddToggle('EspEnabled', {
+    Text = 'Enabled';
+    Default = Axis.Visual.Esp.Enabled;
     Callback = function(vf)
         Axis.Visual.Esp.Enabled = vf
     end
 })
 
-Esp:AddToggle('BoxEnabled', {
-    Text = 'Box Enabled';
-    Default = false;
-
+Esp:AddToggle('EspBox', {
+    Text = 'Box';
+    Default = Axis.Visual.Esp.Box;
     Callback = function(vf)
-        Axis.Visual.Esp.BoxEnabled = vf
+        Axis.Visual.Esp.Box = vf
     end
 })
 
-Esp:AddToggle('BoxEnabled', {
-    Text = 'Health Enabled';
-    Default = false;
-
+Esp:AddToggle('EspBoxFilled', {
+    Text = 'Box Filled';
+    Default = Axis.Visual.Esp.BoxFilled;
     Callback = function(vf)
-        Axis.Visual.Esp.HealthEnanled = vf
+        Axis.Visual.Esp.BoxFilled = vf
+    end
+})
+
+Esp:AddToggle('EspName', {
+    Text = 'Name';
+    Default = Axis.Visual.Esp.Name;
+    Callback = function(vf)
+        Axis.Visual.Esp.Name = vf
+    end
+})
+
+Esp:AddToggle('EspGun', {
+    Text = 'Gun Equppied';
+    Default = Axis.Visual.Esp.Gun;
+    Callback = function(vf)
+        Axis.Visual.Esp.Gun = vf
+    end
+})
+
+Esp:AddToggle('EspDustance', {
+    Text = 'Distance';
+    Default = Axis.Visual.Esp.Distance;
+    Callback = function(vf)
+        Axis.Visual.Esp.Distance = vf
     end
 })
 
 
-Esp:AddToggle('NameEnabled', {
-    Text = 'Name Enabled';
-    Default = false;
 
+Esp:AddToggle('EspHighlight', {
+    Text = 'Highlight';
+    Default = Axis.Visual.Esp.Highlight;
     Callback = function(vf)
-        Axis.Visual.Esp.NameEnabled = vf
+        Axis.Visual.Esp.Highlight = vf
     end
 })
+
+Esp:AddToggle('EspHealth', {
+    Text = 'Health';
+    Default = Axis.Visual.Esp.Health;
+    Callback = function(vf)
+        Axis.Visual.Esp.Health = vf
+    end
+})
+
+Esp:AddToggle('EspArmor', {
+    Text = 'Armor';
+    Default = Axis.Visual.Esp.Armor;
+    Callback = function(vf)
+        Axis.Visual.Esp.Armor = vf
+    end
+})
+
 
 
 for index, value in pairs(Users:GetPlayers()) do
     OnPlayerAdded(value)
     if value ~= L_Player then
-        AddPlayerQuad(value)
-        PlayerAddLine(value)
-        PlayernameAdd(value)
-
+        OnVisualsAdded(value)
         if not table.find(Script.ListPlayersWhitelist, value.Name) then
             table.insert(Script.ListPlayersWhitelist, value.Name)
         end
-
     end
 end
 
 Users.PlayerAdded:Connect(function(player)
-
-    OnPlayerAdded(player)
-    AddPlayerQuad(player)
-    PlayerAddLine(player)
-    PlayernameAdd(player)
-
     if player ~= L_Player then
+
+        OnPlayerAdded(player)
+        OnVisualsAdded(player)
+
+
         if not table.find(Script.ListPlayersWhitelist, player.Name) then
             table.insert(Script.ListPlayersWhitelist, player.Name)
         end
-        Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
+        --Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
 
         if Axis.Miscs.WhiteListSettings.AutoWhiteListOnJoin and not Script.LastLoggedPlayer[player.UserId] == true then
             if not Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[player.Name] then
                 Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[player.Name] = true
             end
 
-            Options.PlayerList:SetValue(Axis.Miscs.WhiteListSettings.PlayersOnWhiteList)
+            --Options.PlayerList:SetValue(Axis.Miscs.WhiteListSettings.PlayersOnWhiteList)
         end
     end
 end)
 
 Users.PlayerRemoving:Connect(function(player)
-
-    OnPlayerRemove(player)
-    OnPlayerRemoveQuad(player)
-
-    local Userid = player.UserId
-
-    if not Script.LastLoggedPlayer[Userid] then
-        Script.LastLoggedPlayer[Userid] = true
-    end
-
     if player ~= L_Player then
+        OnPlayerRemove(player)
+        OnVisualRemove(player)
+        local Userid = player.UserId
+        if not Script.LastLoggedPlayer[Userid] then
+            Script.LastLoggedPlayer[Userid] = true
+        end
         if table.find(Script.ListPlayersWhitelist, player.Name) then
             table.remove(Script.ListPlayersWhitelist, table.find(Script.ListPlayersWhitelist, player.Name))
         end
-        Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
+        --Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
         if Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[player.Name] then
             Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[player.Name] = nil
         end
-        Options.PlayerList:SetValue(Axis.Miscs.WhiteListSettings.PlayersOnWhiteList)
+        --Options.PlayerList:SetValue(Axis.Miscs.WhiteListSettings.PlayersOnWhiteList)
 
     end
 end)
 
-Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
+--Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if NewKeybindCooldown then return end
+    if input.KeyCode == Axis.Combat.SilentAim.Keybind then
+        Axis.Combat.SilentAim.Enabled = not Axis.Combat.SilentAim.Enabled
+        Toggles.SilentAimEnabled:SetValue(Axis.Combat.SilentAim.Enabled)
+        if Axis.Combat.SilentAim.SelectPriority == 'Toggled' then
+            if Axis.Combat.SilentAim.Enabled == true then
+                local Ignore, Player = GetClosetTarget()
+                Script.TargetSettings.Player = Player
+            end
+        end
+    end
+
+
+end)
 
 
 local MenuGroup = Tabs['Settings']:AddLeftGroupbox('Menu')
