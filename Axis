@@ -10,6 +10,8 @@ if not game:GetService("ReplicatedStorage").Modules.GunHandler then
     warn('Cant Work')
     return 
 end
+
+local LocalizationService = game:GetService('LocalizationService')
 local GunHandler = require(game:GetService("ReplicatedStorage").Modules.GunHandler)
 local MainModule = require(game:GetService("ReplicatedStorage").MainModule)
 
@@ -26,7 +28,7 @@ local Axis = {
             TargetPart = 'Head';
             Keybind = 'Fn';
             TargetPriority = 'Closest to Mouse';
-            SilentAimMethod = 'ReWrite Mouse',
+            SilentAimMethod = 'ReWrite Module',
             SelectPriority = 'Free For All',
 
             NearestPartWhitelist = {
@@ -122,7 +124,26 @@ local Axis = {
             AutoBuyFoods = false;
             FoodsList = {};
             AutoBuyDistance = 9;
+            AutoBuyCooldown = 0.25;
 
+        },
+
+        GunRange = {
+            Revolver = false,
+            RevolverRange = 250,
+            DoubleBarrelSG = false,
+            DoubleBarrelSGRange = 95,
+            TacticalShotgun = false,
+            TacticalShotgunRange = 90,
+        },
+
+        GunCooldown = {
+            Revolver = false,
+            RevolverRange = 0.11,
+            DoubleBarrelSG = false,
+            DoubleBarrelSGRange = 0.17,
+            TacticalShotgun = false,
+            TacticalShotgunRange = 0.3,
         },
 
         WhiteListSettings = {
@@ -219,9 +240,15 @@ local Lighting = game:GetService('Lighting');
 
 local L_Player = Users.LocalPlayer;
 local L_Mouse = L_Player:GetMouse()
+
+
+
 local Auto__Scale__Text =true;
 local NewKeybindCooldown = false;
 local FullyDisblaed = false;
+local MousePos = Vector2.zero
+local LastArmorFire = 0
+local LastFoodFire = 0
 
 
 local Script = {
@@ -244,6 +271,8 @@ local Script = {
     ListPlayersWhitelist = {};
     LastLoggedPlayer = {};
     PlayersLibraryEsp = {},
+    ShopItems = {},
+
 
     Drawing = {
 
@@ -264,9 +293,69 @@ local Script = {
             Filled = nil;
         }
     };
-
-    MouseLocation = nil;
+    SavedDataGun = {}
 }
+
+
+for Index, Item in pairs(workspace.Ignored.Shop:GetChildren()) do
+    Script.ShopItems[Index] = Item
+end
+
+do
+
+    local Connection1
+    local Connection2
+    function CharcterAdded(Character : Model)
+
+        if Connection1 ~= nil then
+            Connection1:Disconnect()
+        end
+
+        if Connection2 ~= nil then
+            Connection2:Disconnect()
+        end
+
+        Connection1 = Character.ChildRemoved:Connect(function(child)
+            local IsGun = if child.Name == '[Double-Barrel SG]'or child.Name== '[Revolver]'or child.Name== '[TacticalShotgun]' then true else false
+            if IsGun then
+
+                if not Script.SavedDataGun[child.Name] then
+                    local data = {
+                        SavedRange = child:WaitForChild('Range').Value,
+                        SavedCooldown = child:WaitForChild('ShootingCooldown').Value
+                    }
+
+                    Script.SavedDataGun[child.Name] = data
+                end
+                
+                if Axis.Miscs.GunRange.Revolver and child.Name == '[Revolver]' then
+                    if child:FindFirstChild('Range').Value ~= Axis.Miscs.GunRange.RevolverRange then
+                        child:FindFirstChild('Range').Value = Axis.Miscs.GunRange.RevolverRange
+                        child:FindFirstChildWhichIsA('LocalScript').Enabled = false
+                        child:FindFirstChildWhichIsA('LocalScript').Enabled = true
+                    end
+                end
+
+
+
+
+
+
+
+
+
+
+
+            end
+        end)
+    end
+
+    L_Player.CharacterAdded:Connect(function(character)
+        CharcterAdded(character)
+    end)
+    CharcterAdded(L_Player.Character)
+end
+
 
 function DrawFov(Thickness, NumSide, Radius, Color)
     local Default = Drawing.new('Circle')
@@ -304,6 +393,19 @@ function DrawQuad(Thickness, Color)
     return quad
 end
 
+function DrawSquare(Thickness, Color)
+    local Square = Drawing.new("Square")
+    Square.Visible = false
+    Square.Position = Vector2.zero
+    Square.Size = Vector2.zero
+    Square.Color = Color
+    Square.Thickness = Thickness
+    Square.Transparency = 1
+    Square.Filled  = false
+    return Square
+    
+end
+
 function DrawText(DefaultSize, Color, transparency)
     local text = Drawing.new("Text")
     text.Visible = false
@@ -318,25 +420,20 @@ function DrawText(DefaultSize, Color, transparency)
 end
 
 
-
-
-
-
-
 Script.Drawing.SilentAimLibrary.Filled = DrawFov(0, 100, 200, Color3.fromRGB(247, 204, 241))
 Script.Drawing.SilentAimLibrary.Big = DrawFov(4, 100, 200, Color3.fromRGB(0, 0, 0))
 Script.Drawing.SilentAimLibrary.Normal = DrawFov(2, 100, 200, Color3.fromRGB(243, 207, 207))
-Script.Drawing.SilentAimLibrary.Filled.Filled = true
+Script.Drawing.SilentAimLibrary.Filled.Filled = false
 Script.Drawing.SilentAimLibrary.Filled.Transparency = 0.15
 
-Script.Drawing.CircleTarget.Filled = DrawFov(0, 100, 200, Color3.fromRGB(247, 204, 241))
-Script.Drawing.CircleTarget.Big = DrawFov(4, 100, 200, Color3.fromRGB(0, 0, 0))
-Script.Drawing.CircleTarget.Normal = DrawFov(2, 100, 200, Color3.fromRGB(243, 207, 207))
-Script.Drawing.CircleTarget.Filled.Filled = true
-Script.Drawing.CircleTarget.Filled.Transparency = 0.25
+Script.Drawing.CircleTarget.Filled = DrawFov(0, 100, 15, Color3.fromRGB(247, 204, 241))
+Script.Drawing.CircleTarget.Big = DrawFov(4, 100, 15, Color3.fromRGB(0, 0, 0))
+Script.Drawing.CircleTarget.Normal = DrawFov(2, 100, 15, Color3.fromRGB(243, 207, 207))
+Script.Drawing.CircleTarget.Filled.Filled = false
+Script.Drawing.CircleTarget.Filled.Transparency = 0.15
 
 Script.Drawing.LineLibrary.Big = DrawLine(2.5, Color3.fromRGB(0, 0, 0))
-Script.Drawing.LineLibrary.Normal = DrawLine(1.5, Color3.fromRGB(87, 240, 146))
+Script.Drawing.LineLibrary.Normal = DrawLine(1.5, Color3.fromRGB(243, 207, 207))
 
 
 function WallCheck(Part: Instance)
@@ -422,64 +519,65 @@ end
 
 function OnVisualsAdded(p1)
     if not Script.PlayersLibraryEsp[p1] then
+
+        local Highlight :Highlight = Instance.new('Highlight')
+        Highlight.Parent = nil
+        Highlight.FillColor = Color3.fromRGB(4, 134, 221)
+        Highlight.FillTransparency = 0.55
+        Highlight.OutlineTransparency = 0.85
+        Highlight.OutlineColor = Color3.fromRGB(13, 14, 14)
+
+
         Script.PlayersLibraryEsp[p1] = {
+
+            Character = p1.Character,
+            Highlight = Highlight,
+            --BodyEffects = p1.Character:WaitForChild('BodyEffects'),
             Esp = {
 
-                Normal2D = {
-                    FakeFilled = DrawQuad(0, Color3.fromRGB(53, 45, 45)),
-                    NewQuad = DrawQuad(3, Color3.fromRGB(0, 0, 0)),
-                    OldQuad = DrawQuad(1.5, Color3.fromRGB(255, 255, 255)),
-                },
+                BoxOutline = DrawSquare(3.5, Color3.fromRGB(0, 0, 0)),
+                BoxInline = DrawSquare(0, Color3.fromRGB(0, 0, 0)),
+                Box = DrawSquare(2, Color3.fromRGB(255, 255, 255)),
 
-                Normal3D = {
+                --[[HealthBar = DrawLine(2, Color3.fromRGB(0, 0, 0)),
+                Health = DrawLine(1, Color3.fromRGB(27, 248, 38)),
 
-                }
+                ArmorBar = DrawLine(2, Color3.fromRGB(0, 0, 0)),
+                Armor = DrawLine(1, Color3.fromRGB(10, 149, 241)),]]--
+
+                Name = DrawText(19, Color3.fromRGB(255, 255, 255), 1)
             },
 
-            HealthBar = DrawLine(3, Color3.fromRGB(0, 0, 0)),
-            Health = DrawLine(1.5, Color3.fromRGB(64, 255, 57)),
+            CharAdded=p1.CharacterAdded:Connect(function(char)
 
-            ArmorBar = DrawLine(2, Color3.fromRGB(0, 0, 0)),
-            Armor = DrawLine(1, Color3.fromRGB(20, 116, 241)),
+                char:WaitForChild('HumanoidRootPart')
+                char:WaitForChild('Humanoid')
+                --char:WaitForChild('BodyEffects')
 
-            DisplayName = DrawText(19, Color3.fromRGB(235, 234, 234),1),
-            Distance = DrawText(19, Color3.fromRGB(235, 234, 234),1)
+                Script.PlayersLibraryEsp[p1].Character = char
+                --Script.PlayersLibraryEsp[p1].BodyEffects = char:WaitForChild('BodyEffects')
+
+
+            end)
         }
     end
 end
 
 function OnVisualRemove(p1)
-    if Script.PlayersLibraryEsp[p1] then
+    local data = Script.PlayersLibraryEsp[p1]
+    if not data then
+        return
+    end
+    local Esp = data.Esp
 
-        local Esp = Script.PlayersLibraryEsp[p1].Esp
+    if data.CharAdded then
+        data.CharAdded:Disconnect()
+    end
 
-        local DisplayName = Script.PlayersLibraryEsp[p1].DisplayName
-        local Distance = Script.PlayersLibraryEsp[p1].Distance
-
-
-        local Hleathbar = Script.PlayersLibraryEsp[p1].HealthBar
-        local Health = Script.PlayersLibraryEsp[p1].Health
-
-        local ArmorBar = Script.PlayersLibraryEsp[p1].ArmorBar
-        local Armor = Script.PlayersLibraryEsp[p1].Armor
-
-
-        for index, value in next, Esp do
-            for Name, drawing in next, value do
-                drawing:Remove()
-            end
-
-        end
-
-        DisplayName:Remove()
-        Distance:Remove()
-
-        Hleathbar:Remove()
-        Health:Remove()
-
-        ArmorBar:Remove()
-        Armor:Remove()
-
+    data.Character = nil
+    
+    for i,v in next, Esp do
+        v:Remove()
     end
 end
 
@@ -573,10 +671,126 @@ end]]--
 
 
 local dt__Pulse = 0;
+RunService.RenderStepped:Connect(function(deltaTime)
+    local Moved = (MousePos ~= UserInputService:GetMouseLocation())
+    MousePos = UserInputService:GetMouseLocation()
+
+    if (Moved) then
+        for index, value in next, Script.Drawing.SilentAimLibrary do
+            value.Position = MousePos
+        end
+    end
+
+    if (Axis.Visual.Esp.Enabled) then
+        for Player:Player, Data in next, Script.PlayersLibraryEsp do
+            if (Data.Character) then
+ 
+                local Humanoid = Data.Character.Humanoid
+                local HrpPos, OnScree = Camera:WorldToViewportPoint(Data.Character.HumanoidRootPart.Position)
+
+                local Scale = math.clamp(1 / (HrpPos.Z * math.tan(math.rad(Camera.FieldOfView * 0.5)) * 2) * 1250, 1, math.huge)
+                local Wigth, Heigth = math.floor(3.5 * Scale), math.floor(6.5 * Scale)
+                local x,y = math.floor(HrpPos.X), math.floor(HrpPos.Y)
+                local xPos, yPos = math.floor(x - Wigth * 0.5), math.floor((y - Heigth * 0.5) + ( 0.5 * Scale))
+
+                local NewTextScale = math.clamp(1 / (HrpPos.Z * math.tan(math.rad(Camera.FieldOfView * 0.5)) * 2) * 1000, 15, 19)
+
+                Data.Esp.Box.Position = Vector2.new(xPos,yPos)
+                Data.Esp.Box.Size = Vector2.new(Wigth, Heigth)
+
+                Data.Esp.BoxInline.Position = Vector2.new(xPos,yPos)
+                Data.Esp.BoxInline.Size = Vector2.new(Wigth, Heigth)
+
+                Data.Esp.BoxOutline.Position = Vector2.new(xPos,yPos)
+                Data.Esp.BoxOutline.Size = Vector2.new(Wigth, Heigth)
+
+                --[[Data.Esp.HealthBar.From = Vector2.new(xPos - math.clamp(Scale, 3, 4), yPos) 
+                Data.Esp.HealthBar.To = Vector2.new(xPos - math.clamp(Scale, 3, 4), yPos + Heigth ) 
+
+                Data.Esp.Health.From = Vector2.new(xPos - math.clamp(Scale, 3, 4), yPos +1) 
+                Data.Esp.Health.To = Vector2.new(xPos - math.clamp(Scale, 3, 4), yPos + (Heigth * HealthOffsets) - 1)
+
+                Data.Esp.ArmorBar.From = Vector2.new(xPos - if Axis.Visual.Esp.Health then math.clamp(Scale, 5, 6) else math.clamp(Scale, 3, 4), yPos +1)
+                Data.Esp.ArmorBar.To = Vector2.new(xPos - if Axis.Visual.Esp.Health then math.clamp(Scale, 5, 6) else math.clamp(Scale, 3, 4), yPos + Heigth - 1)
+
+                Data.Esp.Armor.From = Vector2.new(xPos - if Axis.Visual.Esp.Health then math.clamp(Scale, 5, 6) else math.clamp(Scale, 3, 4), yPos +1)
+                Data.Esp.Armor.To = Vector2.new(xPos - if Axis.Visual.Esp.Health then math.clamp(Scale, 5, 6) else math.clamp(Scale, 3, 4), yPos + (Heigth * ArmorOffsets) - 1)]]--
+
+
+                Data.Esp.Name.Text = Player.DisplayName
+                Data.Esp.Name.Position = Vector2.new(x, (yPos + Heigth))
+                Data.Esp.Name.Size = NewTextScale
+
+                --Data.Esp.HealthBar.Visible = (OnScree and Axis.Visual.Esp.Health) or false
+                --Data.Esp.Health.Visible = (OnScree and Axis.Visual.Esp.Health) or false
+
+                Data.Esp.Name.Visible = (OnScree and Axis.Visual.Esp.Name) or false
+
+                Data.Esp.Box.Visible = (OnScree and Axis.Visual.Esp.Box) or false
+                Data.Esp.BoxOutline.Visible = (OnScree and Axis.Visual.Esp.Box) or false
+
+                --Data.Esp.ArmorBar.Visible = (OnScree and Axis.Visual.Esp.Armor) or false
+                --Data.Esp.Armor.Visible = (OnScree and Axis.Visual.Esp.Armor) or false
+
+
+                Data.Esp.BoxInline.Visible = (OnScree and Axis.Visual.Esp.BoxFilled) or false
+                Data.Esp.BoxInline.Filled = (OnScree and Axis.Visual.Esp.BoxFilled) or false
+                Data.Esp.BoxInline.Transparency = 0.15
+                if (Axis.Visual.Esp.Highlight and not Data.Character:FindFirstChild('Highlight'))  then
+                    Data.Highlight.Parent = Data.Character
+                end
+
+            end
+        end
+    end
+
+    if (Axis.Combat.SilentAim.Visual.Circle.Enabled) then
+        if Script.TargetSettings.Part then
+            local Pos, OnScree = Camera:WorldToViewportPoint(Script.TargetSettings.Part.Position)
+            Script.Drawing.CircleTarget.Normal.Visible = OnScree
+            Script.Drawing.CircleTarget.Big.Visible = OnScree
+            Script.Drawing.CircleTarget.Filled.Visible = (OnScree and Axis.Combat.SilentAim.Visual.Circle.Filled) or false
+            Script.Drawing.CircleTarget.Filled.Filled = Script.Drawing.CircleTarget.Filled.Visible
+
+            Script.Drawing.CircleTarget.Big.Position = Vector2.new(Pos.X, Pos.Y)
+            Script.Drawing.CircleTarget.Normal.Position = Vector2.new(Pos.X, Pos.Y)
+            Script.Drawing.CircleTarget.Filled.Position = Vector2.new(Pos.X, Pos.Y)
+        else
+            Script.Drawing.CircleTarget.Normal.Visible = false
+            Script.Drawing.CircleTarget.Big.Visible = false
+            Script.Drawing.CircleTarget.Filled.Visible = false
+
+        end
+    end
+
+
+    
+    if (Axis.Combat.SilentAim.Visual.Trace.Enabled) then
+        if Script.TargetSettings.Part then
+            local pos, onScreen = Camera:WorldToViewportPoint(Script.TargetSettings.Part.Position)
+            for name , data in next, Script.Drawing.LineLibrary do
+                data.Visible = onScreen
+                data.From = Vector2.new(pos.X, pos.Y)
+                data.To = Vector2.new(MousePos.X, MousePos.Y)
+            end
+        else
+            for name , data in next, Script.Drawing.LineLibrary do
+                data.Visible = false
+            end
+        end
+    else
+        for name , data in next, Script.Drawing.LineLibrary do
+            data.Visible = false
+        end
+    end
+
+end)
+
+
+
 
 RunService.Heartbeat:Connect(function(deltaTime)
-    local MouseLocation = UserInputService:GetMouseLocation()
-    
+
     if ( Axis.Combat.SilentAim.Enabled and Axis.Combat.SilentAim.SelectPriority == 'Free For All')  then
         local part, plr = GetClosetTarget()
         Script.TargetSettings.Part = part
@@ -602,244 +816,80 @@ RunService.Heartbeat:Connect(function(deltaTime)
         Script.TargetSettings.Part = nil
     end
 
-    if ( Axis.Visual.Esp.Enabled) then
-        FullyDisblaed = false
-        for Player, Information in next, Script.PlayersLibraryEsp do
+    
+    if (Axis.Miscs.LegitUtility.AutoBuyArmor) then
+        if tick() - LastArmorFire >= Axis.Miscs.LegitUtility.AutoBuyCooldown then
+            for index, item in next, Script.ShopItems do
+                local Name = item.Name
 
-            local Esp = Information.Esp
-            local DisplayName = Information.DisplayName
-            local Distance = Information.Distance
-            local HealthBar = Information.HealthBar
-            local Health = Information.Health
+                if not item:FindFirstChild('Head') then
+                    continue
+                end
 
-            local ArmorBar =Information.ArmorBar
-            local Armor = Information.Armor
+                if not item:FindFirstChild('ClickDetector') then
+                    continue
+                end
+                if not string.match(Name, "%[Full Armor%]") then
+                    continue
+                end
+    
+                local Head = item:FindFirstChild('Head')
+                local ClickDetector = item:FindFirstChild('ClickDetector')
 
-            if Player.Character and Player.Character:FindFirstChild('Head') and Player.Character:FindFirstChild('Humanoid') then
-                local PosHRp, onscreen = Camera:WorldToViewportPoint(Player.Character.HumanoidRootPart.Position)
-                local HeadPos = Camera:WorldToViewportPoint(Player.Character.Head.Position)
-                local DistanceFromClient =  if L_Player.Character ~= nil and L_Player.Character:FindFirstChild('HumanoidRootPart') then (L_Player.Character.HumanoidRootPart.Position - Player.Character.HumanoidRootPart.Position).Magnitude else 0 
-
-                local distance = PosHRp.Z
-                local scale = 1000/ distance
-                local size = math.clamp(scale, 2, math.huge)
-                local TextSize = math.clamp(scale, 14, 18) 
-
-                for Name, EspAny : any in next, Esp.Normal2D do
-                    if Name ~= 'FakeFilled' then
-                        EspAny.Transparency = Axis.Visual.Esp.BoxTransparency
-                        EspAny.Visible = (onscreen and Axis.Visual.Esp.Box and L_Player.Character ~= nil) or false
-                    else
-                        EspAny.Filled = (onscreen and Axis.Visual.Esp.BoxFilled)
-                        EspAny.Transparency = Axis.Visual.Esp.BoxFilledTransparency
-                        EspAny.Visible = (onscreen and Axis.Visual.Esp.BoxFilled and L_Player.Character ~= nil) or false
+                if L_Player.Character and L_Player.Character:FindFirstChild("HumanoidRootPart") and L_Player.Character:FindFirstChild('BodyEffects').Armor.Value < 200 then
+                    local Dist = (L_Player.Character:FindFirstChild("HumanoidRootPart").Position - Head.Position).Magnitude
+                    if Dist <= Axis.Miscs.LegitUtility.AutoBuyDistance then
+                        fireclickdetector(ClickDetector)
+                        RunService.RenderStepped:Wait()
+                        LastArmorFire = tick()
                     end
-
-                    EspAny.PointA = Vector2.new(PosHRp.X + size, PosHRp.Y + size*2)
-                    EspAny.PointB = Vector2.new(PosHRp.X - size, PosHRp.Y + size*2)
-                    EspAny.PointC = Vector2.new(PosHRp.X - size, PosHRp.Y - size*2)
-                    EspAny.PointD = Vector2.new(PosHRp.X + size, PosHRp.Y - size*2)
-                end
-
-
-                local WholeSize:number = (Vector2.new(0, PosHRp.Y - size*2) - Vector2.new(0, PosHRp.Y + size*2)).Magnitude
-                local HealthOffsets = Player.Character:FindFirstChild('Humanoid').Health/Player.Character:FindFirstChild('Humanoid').MaxHealth
-
-
- 
-                HealthBar.From = Vector2.new(PosHRp.X + (size + math.clamp(size, 2, 4)), PosHRp.Y + size*2)
-                HealthBar.To = Vector2.new(PosHRp.X + (size + math.clamp(size, 2, 4)), PosHRp.Y - size*2)
-
-                Health.From = Vector2.new(PosHRp.X + (size + math.clamp(size, 2, 4)), PosHRp.Y + size*2)
-                Health.To = Vector2.new(PosHRp.X + (size + math.clamp(size, 2, 4)),  PosHRp.Y + size*2 - (WholeSize * HealthOffsets))
-
-                HealthBar.Visible = (onscreen and Axis.Visual.Esp.Health and L_Player.Character ~= nil) or false
-                Health.Visible = (onscreen and Axis.Visual.Esp.Health and L_Player.Character ~= nil) or false
-
-
-                DisplayName.Visible = (onscreen and Axis.Visual.Esp.Name and L_Player.Character ~= nil) or false
-                Distance.Visible = (onscreen and Axis.Visual.Esp.Distance and L_Player.Character ~= nil) or false
-
-                Distance.Text = math.floor(DistanceFromClient)..' M'
-                DisplayName.Text = Player.DisplayName
-
-                DisplayName.Position = Vector2.new(PosHRp.X, PosHRp.Y + size*2 )
-                Distance.Position = Vector2.new(
-                    PosHRp.X, if Axis.Visual.Esp.Name then PosHRp.Y + (size*2 + 13) else PosHRp.Y + size*2
-                )
-
-                if Auto__Scale__Text then
-                    DisplayName.Size = TextSize
-                    Distance.Size = TextSize
-                end
-
-
-                local ArmorBody = (Player.Character:FindFirstChild('BodyEffects') ~= nil and Player.Character:FindFirstChild('BodyEffects').Armor.Value) or 0
-                local ConfientArmor = ArmorBody/200
-                local ScaledConfief = WholeSize * ConfientArmor
-
-                ArmorBar.From = Vector2.new(PosHRp.X + if Axis.Visual.Esp.Health then (size + math.clamp(size, 5, 6)) else (size + math.clamp(size, 2, 4)), PosHRp.Y + size*2)
-                ArmorBar.To = Vector2.new(PosHRp.X + if Axis.Visual.Esp.Health then (size + math.clamp(size, 5, 6)) else (size + math.clamp(size, 2, 4)), PosHRp.Y - size*2)
-
-                Armor.From = Vector2.new(PosHRp.X + if Axis.Visual.Esp.Health then (size + math.clamp(size, 5, 6)) else (size + math.clamp(size, 2, 4)), PosHRp.Y + size*2)
-                Armor.To = Vector2.new(PosHRp.X + if Axis.Visual.Esp.Health then (size + math.clamp(size, 5, 6)) else (size + math.clamp(size, 2, 4)),  PosHRp.Y + size*2 - ScaledConfief)
-
-                ArmorBar.Visible = (onscreen and Axis.Visual.Esp.Armor and L_Player.Character ~= nil) or false
-                Armor.Visible = (onscreen and Axis.Visual.Esp.Armor and L_Player.Character ~= nil) or false
-            end
-        end
-    else
-        if FullyDisblaed == false then
-            FullyDisblaed = true
-
-            for Player, Information in next, Script.PlayersLibraryEsp do
-
-                local Esp = Information.Esp
-                local DisplayName = Information.DisplayName
-                local Distance = Information.Distance
-                local HealthBar = Information.HealthBar
-                local Health = Information.Health
-
-                local ArmorBar =Information.ArmorBar
-                local Armor = Information.Armor
-
-                for Name, EspAny : any in next, Esp.Normal2D do
-                    EspAny.Visible = false
-                end
-
-                
-                HealthBar.Visible =  false
-                Health.Visible =  false
-
-
-                DisplayName.Visible =  false
-                Distance.Visible =  false
-
-
-                ArmorBar.Visible = false
-                Armor.Visible = false
-
-            end
-        end
-    end
-
-    if (Axis.Combat.SilentAim.Visual.Circle.Enabled) then
-        if Script.TargetSettings.Part then
-            local pos, onScreen = Camera:WorldToViewportPoint(Script.TargetSettings.Part.Position)
-            if onScreen then
-                Script.Drawing.CircleTarget.Normal.Visible = true
-                Script.Drawing.CircleTarget.Big.Visible = true
-                Script.Drawing.CircleTarget.Filled.Visible = Axis.Combat.SilentAim.Visual.Circle.Filled
-                Script.Drawing.CircleTarget.Big.Position = Vector2.new(pos.X, pos.Y)
-                Script.Drawing.CircleTarget.Normal.Position = Vector2.new(pos.X, pos.Y)
-                Script.Drawing.CircleTarget.Filled.Position = Vector2.new(pos.X, pos.Y)
-            else
-                Script.Drawing.CircleTarget.Normal.Visible = false
-                Script.Drawing.CircleTarget.Big.Visible = false
-                Script.Drawing.CircleTarget.Filled.Visible = false
-            end
-        else
-            Script.Drawing.CircleTarget.Normal.Visible = false
-            Script.Drawing.CircleTarget.Big.Visible = false
-            Script.Drawing.CircleTarget.Filled.Visible = false
-        end
-
-        Script.Drawing.CircleTarget.Normal.Transparency = Axis.Combat.SilentAim.Visual.Circle.Transparency
-        Script.Drawing.CircleTarget.Big.Transparency = Script.Drawing.CircleTarget.Normal.Transparency
-        Script.Drawing.CircleTarget.Filled.Filled = Axis.Combat.SilentAim.Visual.Circle.Filled
-        Script.Drawing.CircleTarget.Filled.Transparency = Axis.Combat.SilentAim.Visual.Circle.FilledTransparency
-        Script.Drawing.CircleTarget.Filled.Radius = Axis.Combat.SilentAim.Visual.Circle.Radius
-        Script.Drawing.CircleTarget.Normal.Radius = Axis.Combat.SilentAim.Visual.Circle.Radius
-        Script.Drawing.CircleTarget.Big.Radius = Script.Drawing.CircleTarget.Normal.Radius
-
-    end
-
-    if (Axis.Combat.SilentAim.UseFov) then
-
-        for name, data in next, Script.Drawing.SilentAimLibrary do
-            if data.Visible == true then
-                data.Position = Vector2.new(MouseLocation.X, MouseLocation.Y)
-                data.Radius = Axis.Combat.SilentAim.FovRadius
-            end
-        end
-
-        Script.Drawing.SilentAimLibrary.Normal.Visible = Axis.Combat.SilentAim.UseFov
-        Script.Drawing.SilentAimLibrary.Big.Visible = Axis.Combat.SilentAim.UseFov
-        Script.Drawing.SilentAimLibrary.Normal.Color = Axis.Combat.SilentAim.FovColor
-
-        Script.Drawing.SilentAimLibrary.Filled.Visible = Axis.Combat.SilentAim.Visual.Filled.Enabled
-        Script.Drawing.SilentAimLibrary.Filled.Color = Axis.Combat.SilentAim.Visual.Filled.Color
-        Script.Drawing.SilentAimLibrary.Filled.Transparency = Axis.Combat.SilentAim.Visual.Filled.Transparency
-    else
-        Script.Drawing.SilentAimLibrary.Filled.Visible = false
-        Script.Drawing.SilentAimLibrary.Normal.Visible = false
-        Script.Drawing.SilentAimLibrary.Big.Visible  = false
-
-
-    end
-
-    if (Axis.Combat.SilentAim.Visual.Trace.Enabled) then
-        if Script.TargetSettings.Part then
-
-            Script.Drawing.LineLibrary.Normal.Color = Axis.Combat.SilentAim.Visual.Trace.Color
-            Script.Drawing.LineLibrary.Normal.Thickness = Axis.Combat.SilentAim.Visual.Trace.Thickness
-            Script.Drawing.LineLibrary.Big.Thickness = Script.Drawing.LineLibrary.Normal.Thickness + 1
-
-            local pos, onScreen = Camera:WorldToViewportPoint(Script.TargetSettings.Part.Position)
-            if onScreen then
-                for name , data in next, Script.Drawing.LineLibrary do
-                    data.Visible = true
-                    data.From = Vector2.new(pos.X, pos.Y)
-                    data.To = Vector2.new(MouseLocation.X, MouseLocation.Y)
-                end
-            else
-                for name , data in next, Script.Drawing.LineLibrary do
-                    data.Visible = false
                 end
             end
-        else
-            for name , data in next, Script.Drawing.LineLibrary do
-                data.Visible = false
+        end
+    end
+
+    if ( Axis.Miscs.LegitUtility.AutoBuyFoods) then
+        if tick() - LastFoodFire >= Axis.Miscs.LegitUtility.AutoBuyCooldown then
+            for index, item in next, Script.ShopItems do
+                local Name = item.Name
+
+                if not item:FindFirstChild('Head') then
+                    continue
+                end
+
+                if not item:FindFirstChild('ClickDetector') then
+                    continue
+                end
+
+                if not Axis.Miscs.LegitUtility.FoodsList[string.match(Name, "^(%S+)")] then
+                    continue
+                end
+
+                local Head = item:FindFirstChild('Head')
+                local ClickDetector = item:FindFirstChild('ClickDetector')
+
+                if L_Player.Character and L_Player.Character:FindFirstChild("HumanoidRootPart") then
+                    local Dist = (L_Player.Character:FindFirstChild("HumanoidRootPart").Position - Head.Position).Magnitude
+                    if Dist <= Axis.Miscs.LegitUtility.AutoBuyDistance then
+                        fireclickdetector(ClickDetector)
+                        RunService.RenderStepped:Wait()
+                        LastFoodFire = tick()
+                    end
+                end
             end
         end
-    else
-        for name , data in next, Script.Drawing.LineLibrary do
-            data.Visible = false
+    end
+
+
+    if (Axis.Miscs.LegitUtility.AutoEat and L_Player.Character ~= nil) then
+        local Tool = L_Player.Character:FindFirstChildWhichIsA('Tool')
+        local CanEat = if Tool ~= nil then if Tool.Name == '[Chicken]' or Tool.Name == '[Cranberry]' or Tool.Name == '[Hamburger]' or Tool.Name == '[Pizza]'or Tool.Name == '[Stim]'or Tool.Name == '[Taco]' then true else false else false
+        if CanEat then
+            Tool:Activate()
         end
     end
-
-    if (Axis.Visual.Lighting.Ambiend) then
-        Lighting.Ambient = Axis.Visual.Lighting.AmbiendColor
-    end
-
-    if (Axis.Visual.Lighting.ColorShift_Bottom) then
-        Lighting.ColorShift_Bottom = Axis.Visual.Lighting.ColorShift_BottomColor
-    end
-
-    if (Axis.Visual.Lighting.ColorShift_Top) then
-        Lighting.ColorShift_Top = Axis.Visual.Lighting.ColorShift_TopColor
-    end
-
-    if (Axis.Visual.Lighting.Brightness) then
-        Lighting.Brightness = Axis.Visual.Lighting.BrightnessVl3
-    end
-
-    if (Axis.Visual.Lighting.OutDoorAmbiend) then
-        Lighting.OutdoorAmbient = Axis.Visual.Lighting.OutDoorAmbiendColor
-    end
-
-    if (Axis.Visual.Lighting.Shadow) then
-        Lighting.ShadowSoftness = Axis.Visual.Lighting.ShadowSlider
-        Lighting.ShadowColor = Axis.Visual.Lighting.ShadowColor
-    end
-
-    Lighting.Technology = Enum.Technology[tostring(Axis.Visual.Lighting.Technology)]
-    Lighting.LightingStyle = Enum.LightingStyle[tostring(Axis.Visual.Lighting.LightingStyle)]
-    Lighting.GlobalShadows = Axis.Visual.Lighting.GlobalShadow
-
-
-
 end)
+
 
 
 local last__chance__shoot = 0
@@ -873,20 +923,7 @@ GunHandler.GetAim = function(p17, ...)
             return direction, distance
         end
     end
-    
-    --[[if settings and settings.SilentAimEnabled and settings.SelectionAim then
-        if Hit__Chance() then
-            local target = settings.SelectionAim
-            if target and target:IsA("BasePart") then
-                local origin = p17
-                local direction = (target.Position - origin).Unit
-                local distance = (target.Position - origin).Magnitude
-                
-                return direction, distance
-            end
-        end
-    end]]--
-    
+
     return oldGetAim(p17, ...)
 end
 
@@ -899,10 +936,10 @@ local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 Library.AccentColor = Color3.fromRGB(87, 240, 146);
 
 local Window = Library:CreateWindow({
-    Title = 'Axis',
+    Title = 'Axis.cc im cum inside noe pussy',
     Center = true,
     AutoShow = true,
-    TabPadding = 8,
+    TabPadding = 6,
     MenuFadeTime = 0.2;
 })
 
@@ -923,9 +960,12 @@ local SilentAimUtility = Tabs.Combat:AddLeftGroupbox('Utility')
 local CameraTab = Tabs.Combat:AddRightGroupbox('Camera')
 
 local LegitUtility = Tabs.Miscs:AddLeftGroupbox('Legit Utility');
+local GunRange = Tabs.Miscs:AddLeftGroupbox('Gun Range Utility');
+local GunCooldown = Tabs.Miscs:AddLeftGroupbox('Gun Cooldown Utility');
 
 local whitelisttab = Tabs.Miscs:AddLeftGroupbox('Whitelist');
 local GunMacro = Tabs.Miscs:AddLeftGroupbox('GunMacro');
+
 
 local Esp = Tabs.Visuals:AddLeftGroupbox('Esp');
 local Lighting  = Tabs.Visuals:AddRightGroupbox('Lighting');
@@ -964,8 +1004,8 @@ SilentAimTab:AddToggle('UseFov', {
     Default = false;
 
     Callback = function(vf)
-        print(vf)
-        Axis.Combat.SilentAim.UseFov = vf
+        Script.Drawing.SilentAimLibrary.Big.Visible = vf
+        Script.Drawing.SilentAimLibrary.Normal.Visible = vf
     end
 });
 
@@ -1104,9 +1144,10 @@ SilentAimTab:AddSlider('FovRadius', {
     Max = 500,
     Rounding = 0,
     Compact = false,
-
     Callback = function(Value)
-        Axis.Combat.SilentAim.FovRadius = Value
+        Script.Drawing.SilentAimLibrary.Big.Radius = Value
+        Script.Drawing.SilentAimLibrary.Normal.Radius = Value
+        Script.Drawing.SilentAimLibrary.Filled.Radius = Value
     end
 });
 
@@ -1312,17 +1353,18 @@ SilentAimVisual:AddLabel('Fov Color'):AddColorPicker('FovColor', {
     Transparency = 0,
 
     Callback = function(Value)
-        Axis.Combat.SilentAim.FovColor = Value
+        Script.Drawing.SilentAimLibrary.Normal.Color = Value
     end
 })
 
 
 SilentAimVisual:AddToggle('FilledEnabled', {
-    Text = 'Filled Enabled';
+    Text = 'Fov Filled';
     Default = false;
 
     Callback = function(vf)
-        Axis.Combat.SilentAim.Visual.Filled.Enabled = vf
+        Script.Drawing.SilentAimLibrary.Filled.Visible = vf
+        Script.Drawing.SilentAimLibrary.Filled.Filled = vf
     end
 }):AddColorPicker('FilledColor', {
     Default = Color3.fromRGB(247, 204, 241),
@@ -1330,7 +1372,7 @@ SilentAimVisual:AddToggle('FilledEnabled', {
     Transparency = 0,
 
     Callback = function(Value)
-        Axis.Combat.SilentAim.Visual.Filled.Color = Value
+        Script.Drawing.SilentAimLibrary.Filled.Color = Value
     end
 })
 
@@ -1353,7 +1395,7 @@ SilentAimVisual:AddSlider('FilledTransparency', {
     Compact = false,
 
     Callback = function(Value)
-        Axis.Combat.SilentAim.Visual.Filled.Transparency = Value
+        Script.Drawing.SilentAimLibrary.Filled.Transparency = Value
     end
 });
  
@@ -1386,7 +1428,7 @@ SilentAimVisual:AddSlider('PulseSpeed', {
 });
 
 SilentAimVisual:AddToggle('Trace', {
-    Text = 'Trace Enabled';
+    Text = 'Trace';
     Default = false;
 
     Callback = function(vf)
@@ -1403,7 +1445,7 @@ SilentAimVisual:AddToggle('Trace', {
 })
 
 SilentAimVisual:AddToggle('Circle', {
-    Text = 'Circle Enabled';
+    Text = 'Circle';
     Default = false;
 
     Callback = function(vf)
@@ -1415,13 +1457,13 @@ SilentAimVisual:AddToggle('Circle', {
     Transparency = 0,
 
     Callback = function(Value)
-        Axis.Combat.SilentAim.Visual.Circle.Color = Value
+        Script.Drawing.CircleTarget.Normal.Color = Value 
     end
 })
 
 
 SilentAimVisual:AddToggle('FilledEnabled', {
-    Text = 'Filled Enabled';
+    Text = 'Circle Filled';
     Default = false;
 
     Callback = function(vf)
@@ -1460,7 +1502,9 @@ SilentAimVisual:AddSlider('CirclrRadius', {
     Compact = false,
 
     Callback = function(Value)
-        Axis.Combat.SilentAim.Visual.Circle.Radius = Value
+        Script.Drawing.CircleTarget.Normal.Radius = Value
+        Script.Drawing.CircleTarget.Big.Radius = Value
+        Script.Drawing.CircleTarget.Filled.Radius = Value
     end
 });
 
@@ -1473,12 +1517,13 @@ SilentAimVisual:AddSlider('CirclrTransparency', {
     Compact = false,
 
     Callback = function(Value)
-        Axis.Combat.SilentAim.Visual.Circle.Transparency = Value
+        Script.Drawing.CircleTarget.Normal.Transparency = Value
+        Script.Drawing.CircleTarget.Big.Transparency = Value
     end
 });
 
 SilentAimVisual:AddSlider('FilledTransparency', {
-    Text = 'Filled Transparency',
+    Text = 'Circle Filled Transparency',
     Default = Axis.Combat.SilentAim.Visual.Circle.FilledTransparency,
     Min = 0,
     Max = 1,
@@ -1486,7 +1531,7 @@ SilentAimVisual:AddSlider('FilledTransparency', {
     Compact = false,
 
     Callback = function(Value)
-        Axis.Combat.SilentAim.Visual.Circle.FilledTransparency = Value
+        Script.Drawing.CircleTarget.Filled.Transparency = Value
     end
 });
 
@@ -1531,7 +1576,7 @@ GunMacro:AddToggle('AutoShootEnabled', {
 
 SilentAimUtility:AddDropdown('SilentAimMethod', {
 
-    Values = { 'ReWrite Mouse', 'RaycastManipulation' },
+    Values = { 'ReWrite Module', 'RaycastManipulation' },
     Default = 1,
     Multi = false,
     Text = 'Method Target',
@@ -1546,7 +1591,7 @@ LegitUtility:AddToggle('AutoShootEnabled', {
     Default = false;
 
     Callback = function(vf)
-
+        Axis.Miscs.LegitUtility.AutoEat = vf
     end
 });
 
@@ -1564,7 +1609,7 @@ LegitUtility:AddToggle('AutoShootEnabled', {
     Default = false;
 
     Callback = function(vf)
-
+        Axis.Miscs.LegitUtility.AutoBuyArmor = vf
     end
 });
 
@@ -1573,34 +1618,215 @@ LegitUtility:AddToggle('AutoShootEnabled', {
     Default = false;
 
     Callback = function(vf)
-        
+        Axis.Miscs.LegitUtility.AutoBuyFoods = vf
     end
 });
 
 LegitUtility:AddSlider('AutoBuyDistance', {
     Text = 'Auto Buy Distance',
     Default = Axis.Miscs.LegitUtility.AutoBuyDistance,
-    Min = 0,
+    Min = 4,
     Max = 9,
     Rounding = 2,
     Compact = false,
 
     Callback = function(Value)
+        Axis.Miscs.LegitUtility.AutoBuyDistance = Value
+    end
+});
 
+LegitUtility:AddSlider('AutoBuyCooldown', {
+    Text = 'Auto Buy Cooldown',
+    Default = Axis.Miscs.LegitUtility.AutoBuyCooldown,
+    Min = 0,
+    Max = 5,
+    Rounding = 2,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Miscs.LegitUtility.AutoBuyCooldown = Value
     end
 });
 
 LegitUtility:AddDropdown('AutoBuyFoods', {
 
-    Values = { 'ReWrite Mouse', 'RaycastManipulation' },
+    Values = { '[Chicken]', '[Cranberry]', '[Hamburger]','[Pizza]', '[Stim]', '[Taco]'},
     Default = 0,
     Multi = true,
     Text = 'Choose Food To Buy',
 
     Callback = function(Value)
+        Axis.Miscs.LegitUtility.FoodsList = {}
+
+        for i,v in next, Value do
+            Axis.Miscs.LegitUtility.FoodsList[i] = v
+        end
 
     end
 });
+
+local RevolverRange = GunRange:AddToggle('RevolverRange', {
+    Text = '[Revolver]';
+    Default = Axis.Miscs.GunRange.Revolver;
+
+    Callback = function(vf)
+        Axis.Miscs.GunRange.Revolver = vf
+    end
+})
+
+local RevolverRangeDepBox = GunRange:AddDependencyBox()
+RevolverRangeDepBox:AddSlider('RevolverRangeSlider', {
+    Text = 'Range',
+    Default = Axis.Miscs.GunRange.RevolverRange,
+    Min = 100,
+    Max = 1000,
+    Rounding = 1,
+    Compact = true,
+    Callback = function(Value)
+        Axis.Miscs.GunRange.RevolverRange = Value
+    end
+});
+
+RevolverRangeDepBox:SetupDependencies({
+    { RevolverRange, true } 
+})
+
+
+
+local DoubleBarrelSG = GunRange:AddToggle('DoubleBarrelSGRange', {
+    Text = '[Double-Barrel SG]';
+    Default = Axis.Miscs.GunRange.DoubleBarrelSG;
+
+    Callback = function(vf)
+        Axis.Miscs.GunRange.DoubleBarrelSG = vf
+    end
+})
+
+local DoubleBarrelSGDepbox = GunRange:AddDependencyBox()
+DoubleBarrelSGDepbox:AddSlider('DoubleBarrelSGRangeSlider', {
+    Text = 'Range',
+    Default = Axis.Miscs.GunRange.DoubleBarrelSGRange,
+    Min = 100,
+    Max = 1000,
+    Rounding = 1,
+    Compact = true,
+    Callback = function(Value)
+        Axis.Miscs.GunRange.DoubleBarrelSGRange = Value
+    end
+});
+
+DoubleBarrelSGDepbox:SetupDependencies({
+    { DoubleBarrelSG, true } 
+})
+
+local TacticalShotgun = GunRange:AddToggle('TacticalShotgunRange', {
+    Text = '[TacticalShotgun]';
+    Default = Axis.Miscs.GunRange.TacticalShotgun;
+
+    Callback = function(vf)
+        Axis.Miscs.GunRange.TacticalShotgun = vf
+    end
+})
+
+local TacticalShotgunDepBox = GunRange:AddDependencyBox()
+TacticalShotgunDepBox:AddSlider('TacticalShotgunRangeSlider', {
+    Text = 'Range',
+    Default = Axis.Miscs.GunRange.TacticalShotgunRange,
+    Min = 100,
+    Max = 1000,
+    Rounding = 1,
+    Compact = true,
+    Callback = function(Value)
+        Axis.Miscs.GunRange.TacticalShotgunRange = Value
+    end
+});
+
+TacticalShotgunDepBox:SetupDependencies({
+    { TacticalShotgun, true } 
+})
+
+
+local RevolverCooldown = GunCooldown:AddToggle('RevolverCooldown', {
+    Text = '[Revolver]';
+    Default = Axis.Miscs.GunCooldown.Revolver;
+
+    Callback = function(vf)
+        Axis.Miscs.GunCooldown.Revolver = vf
+    end
+})
+
+local RevolverCooldownDepBox = GunCooldown:AddDependencyBox()
+RevolverCooldownDepBox:AddSlider('RevolverCooldownSlider', {
+    Text = 'Cooldown',
+    Default = Axis.Miscs.GunCooldown.RevolverRange,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Compact = true,
+    Callback = function(Value)
+        Axis.Miscs.GunCooldown.RevolverRange = Value
+    end
+});
+
+RevolverCooldownDepBox:SetupDependencies({
+    { RevolverCooldown, true } 
+})
+
+
+
+local DoubleBarrelSGCooldown = GunCooldown:AddToggle('DoubleBarrelSGCooldown', {
+    Text = '[Double-Barrel SG]';
+    Default = Axis.Miscs.GunCooldown.DoubleBarrelSG;
+
+    Callback = function(vf)
+        Axis.Miscs.GunCooldown.DoubleBarrelSG = vf
+    end
+})
+
+local DoubleBarrelCooldownSGDepbox = GunCooldown:AddDependencyBox()
+DoubleBarrelCooldownSGDepbox:AddSlider('DoubleBarrelSGCooldownSlider', {
+    Text = 'Cooldown',
+    Default = Axis.Miscs.GunCooldown.DoubleBarrelSGRange,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Compact = true,
+    Callback = function(Value)
+        Axis.Miscs.GunCooldown.DoubleBarrelSGRange = Value
+    end
+});
+
+DoubleBarrelCooldownSGDepbox:SetupDependencies({
+    { DoubleBarrelSGCooldown, true } 
+})
+
+local TacticalShotgunCooldown = GunCooldown:AddToggle('TacticalShotgunCooldown', {
+    Text = '[TacticalShotgun]';
+    Default = Axis.Miscs.GunCooldown.TacticalShotgun;
+
+    Callback = function(vf)
+        Axis.Miscs.GunCooldown.TacticalShotgun = vf
+    end
+})
+
+local TacticalShotgunCooldownDepBox = GunCooldown:AddDependencyBox()
+TacticalShotgunCooldownDepBox:AddSlider('TacticalShotgunCooldownSlider', {
+    Text = 'Cooldown',
+    Default = Axis.Miscs.GunCooldown.TacticalShotgunRange,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Compact = true,
+    Callback = function(Value)
+        Axis.Miscs.GunCooldown.TacticalShotgunRange = Value
+    end
+});
+
+TacticalShotgunCooldownDepBox:SetupDependencies({
+    { TacticalShotgunCooldown, true } 
+})
+
+
 
 Lighting:AddToggle('Ambiend', {
     Text = 'Ambiend';
@@ -1920,14 +2146,6 @@ Esp:AddToggle('EspName', {
     end
 })
 
-Esp:AddToggle('EspGun', {
-    Text = 'Gun Equppied';
-    Default = Axis.Visual.Esp.Gun;
-    Callback = function(vf)
-        Axis.Visual.Esp.Gun = vf
-    end
-})
-
 Esp:AddToggle('EspDustance', {
     Text = 'Distance';
     Default = Axis.Visual.Esp.Distance;
@@ -1935,7 +2153,6 @@ Esp:AddToggle('EspDustance', {
         Axis.Visual.Esp.Distance = vf
     end
 })
-
 
 
 Esp:AddToggle('EspHighlight', {
@@ -1946,21 +2163,6 @@ Esp:AddToggle('EspHighlight', {
     end
 })
 
-Esp:AddToggle('EspHealth', {
-    Text = 'Health';
-    Default = Axis.Visual.Esp.Health;
-    Callback = function(vf)
-        Axis.Visual.Esp.Health = vf
-    end
-})
-
-Esp:AddToggle('EspArmor', {
-    Text = 'Armor';
-    Default = Axis.Visual.Esp.Armor;
-    Callback = function(vf)
-        Axis.Visual.Esp.Armor = vf
-    end
-})
 
 
 
