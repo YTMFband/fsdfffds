@@ -301,7 +301,7 @@ for Index, Item in pairs(workspace.Ignored.Shop:GetChildren()) do
     Script.ShopItems[Index] = Item
 end
 
-do
+--[[do
 
     local Connection1
     local Connection2
@@ -315,7 +315,7 @@ do
             Connection2:Disconnect()
         end
 
-        Connection1 = Character.ChildRemoved:Connect(function(child)
+        --[[Connection1 = Character.ChildRemoved:Connect(function(child)
             local IsGun = if child.Name == '[Double-Barrel SG]'or child.Name== '[Revolver]'or child.Name== '[TacticalShotgun]' then true else false
             if IsGun then
 
@@ -354,7 +354,7 @@ do
         CharcterAdded(character)
     end)
     CharcterAdded(L_Player.Character)
-end
+end]]--
 
 
 function DrawFov(Thickness, NumSide, Radius, Color)
