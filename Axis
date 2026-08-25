@@ -1,21 +1,69 @@
 
 -->> ('Loading') <<--
-repeat task["wait"]() until game:IsLoaded()
 
+repeat task["wait"]() until game:IsLoaded()
 if (identifyexecutor() == 'Xeno' or identifyexecutor() == 'Solara') and hookmetamethod == nil then
     game:GetService('Players').LocalPlayer:Kick('[Axis] :  Low-unc Executor Detected ')
 end
-
-if not game:GetService("ReplicatedStorage").Modules.GunHandler then
-    warn('Cant Work')
-    return 
+if not (game:GetService('ReplicatedStorage'):FindFirstChild('Modules') or game:GetService('ReplicatedStorage'):FindFirstChild('Modules'):FindFirstChild('GunHandler'))  then
+    game:GetService('Players').LocalPlayer:Kick('[Axis] : Not Supportable game ')
 end
 
-local LocalizationService = game:GetService('LocalizationService')
+
 local GunHandler = require(game:GetService("ReplicatedStorage").Modules.GunHandler)
 local MainModule = require(game:GetService("ReplicatedStorage").MainModule)
 
--->> ('Byppasing A-C') <<-- --- soonn ill do 
+local MainRemotes = game:GetService('ReplicatedStorage'):WaitForChild("MainRemotes");
+local MainRemoteEvent = MainRemotes:WaitForChild("MainRemoteEvent");
+
+if not MainRemotes or not MainRemoteEvent then
+    warn("MainRemotes or MainRemoteEvent not found in ReplicatedStorage.");
+    return;
+end
+
+-->> ('Byppasing A-C') <<--
+
+do
+    setthreadidentity(2)
+    local hooked = {}
+    local detected, kill
+    for _, v in getgc(true) do
+        if typeof(v) == "table" then
+            local detectFn = rawget(v, "Detected")
+            local killFn = rawget(v, "Kill")
+            if typeof(detectFn) == "function" and not detected then
+                detected = detectFn
+                local old
+                old = hookfunction(detected, function(action, info, noCrash)
+                    return true
+                end)
+                table.insert(hooked, detected)
+            end
+
+            if rawget(v, "Variables") and rawget(v, "Process") and typeof(killFn) == "function" and not kill then
+                kill = killFn
+                local old
+                old = hookfunction(kill, function(info) end)
+                table.insert(hooked, kill)
+            end
+
+        end
+    end
+
+    local oldInfo
+    oldInfo = hookfunction(getrenv().debug.info, newcclosure(function(...)
+        local levelOrFunc = ...
+        if detected and levelOrFunc == detected then
+            return coroutine.yield(coroutine.running())
+        end
+        return oldInfo(...)
+    end))
+
+    setthreadidentity(7)
+end
+
+
+
 
 local Axis = {
     Combat = {
@@ -241,15 +289,13 @@ local Lighting = game:GetService('Lighting');
 local L_Player = Users.LocalPlayer;
 local L_Mouse = L_Player:GetMouse()
 
-
-
 local Auto__Scale__Text =true;
 local NewKeybindCooldown = false;
 local FullyDisblaed = false;
 local MousePos = Vector2.zero
 local LastArmorFire = 0
 local LastFoodFire = 0
-
+local AutoStompDebounce = false;
 
 local Script = {
 
@@ -271,6 +317,7 @@ local Script = {
     ListPlayersWhitelist = {};
     LastLoggedPlayer = {};
     PlayersLibraryEsp = {},
+    SavedSilentAimCharacters = {},
     ShopItems = {},
 
 
@@ -293,7 +340,8 @@ local Script = {
             Filled = nil;
         }
     };
-    SavedDataGun = {}
+    SavedDataGun = {},
+    SavedUpVauleInfo = {},
 }
 
 
@@ -301,7 +349,8 @@ for Index, Item in pairs(workspace.Ignored.Shop:GetChildren()) do
     Script.ShopItems[Index] = Item
 end
 
---[[do
+
+do
 
     local Connection1
     local Connection2
@@ -315,36 +364,131 @@ end
             Connection2:Disconnect()
         end
 
-        --[[Connection1 = Character.ChildRemoved:Connect(function(child)
+        Connection1 = Character.ChildAdded:Connect(function(child : Tool)
             local IsGun = if child.Name == '[Double-Barrel SG]'or child.Name== '[Revolver]'or child.Name== '[TacticalShotgun]' then true else false
             if IsGun then
-
                 if not Script.SavedDataGun[child.Name] then
                     local data = {
                         SavedRange = child:WaitForChild('Range').Value,
                         SavedCooldown = child:WaitForChild('ShootingCooldown').Value
                     }
-
+                    
                     Script.SavedDataGun[child.Name] = data
                 end
-                
+
                 if Axis.Miscs.GunRange.Revolver and child.Name == '[Revolver]' then
-                    if child:FindFirstChild('Range').Value ~= Axis.Miscs.GunRange.RevolverRange then
-                        child:FindFirstChild('Range').Value = Axis.Miscs.GunRange.RevolverRange
-                        child:FindFirstChildWhichIsA('LocalScript').Enabled = false
-                        child:FindFirstChildWhichIsA('LocalScript').Enabled = true
+                    for i, rbxconnect in pairs(getconnections(child.Activated)) do
+                        local Func = rbxconnect.Function
+                        for i,v in next, debug.getupvalues(Func) do
+                            if typeof(v) == "Instance" and v.Name == "Range" then
+                                v.Value = Axis.Miscs.GunRange.RevolverRange
+                                break
+                            end
+                        end
+                    end
+                end
+
+                if Axis.Miscs.GunRange.DoubleBarrelSG and child.Name == '[Double-Barrel SG]' then
+                    for i, rbxconnect in pairs(getconnections(child.Activated)) do
+                        local Func = rbxconnect.Function
+                        for i,v in next, debug.getupvalues(Func) do
+                            if typeof(v) == "Instance" and v.Name == "Range" then
+                                v.Value = Axis.Miscs.GunRange.DoubleBarrelSGRange
+                                break
+                            end
+                        end
+                    end
+                end
+
+                if Axis.Miscs.GunRange.TacticalShotgun and child.Name == '[TacticalShotgun]' then
+                    for i, rbxconnect in pairs(getconnections(child.Activated)) do
+                        local Func = rbxconnect.Function
+                        for i,v in next, debug.getupvalues(Func) do
+                            if typeof(v) == "Instance" and v.Name == "Range" then
+                                v.Value = Axis.Miscs.GunRange.TacticalShotgunRange
+                                break
+                            end
+                        end
                     end
                 end
 
 
 
 
+                if not Axis.Miscs.GunCooldown.Revolver and not Axis.Miscs.GunCooldown.DoubleBarrelSG and not Axis.Miscs.GunCooldown.TacticalShotgun then
+                    for i, rbxconnect in pairs(getconnections(child.Activated)) do
+                        local Func = rbxconnect.Function
+                        if Script.SavedUpVauleInfo[child.Name] then
+                            debug.setupvalue(Func, Script.SavedUpVauleInfo[child.Name], Script.SavedDataGun[child.Name].SavedCooldown)
+                        end
+                    end
+                end
 
+                if not Axis.Miscs.GunRange.Revolver and not Axis.Miscs.GunRange.DoubleBarrelSG and not Axis.Miscs.GunRange.TacticalShotgun then
+                    for i, rbxconnect in pairs(getconnections(child.Activated)) do
+                        local Func = rbxconnect.Function
+                        for i,v in next, debug.getupvalues(Func) do
+                            if typeof(v) == "Instance" and v.Name == "Range" then
+                                v.Value = Script.SavedDataGun[child.Name].SavedRange
+                                break
+                            end
+                        end
+                    end
+                end
 
+                if Axis.Miscs.GunCooldown.Revolver and child.Name == '[Revolver]' then
+                    for i, rbxconnect in pairs(getconnections(child.Activated)) do
+                        local Func = rbxconnect.Function
+                        if not Script.SavedUpVauleInfo[child.Name] then
+                            for i,v in next, debug.getupvalues(Func) do
+                                local FoundValuexe = if v == Script.SavedDataGun[child.Name].SavedCooldown then true else false
+                                if FoundValuexe then
+                                    Script.SavedUpVauleInfo[child.Name] = i
+                                    break
+                                end
+                            end
+                            
+                        end
+                        print('Huh')
+                        debug.setupvalue(Func, Script.SavedUpVauleInfo[child.Name], Axis.Miscs.GunCooldown.RevolverRange)
+                    end
+                end
 
+                if Axis.Miscs.GunCooldown.DoubleBarrelSG and child.Name == '[Double-Barrel SG]' then
+                    for i, rbxconnect in pairs(getconnections(child.Activated)) do
+                        local Func = rbxconnect.Function
+                        if not Script.SavedUpVauleInfo[child.Name] then
+                            for i,v in next, debug.getupvalues(Func) do
+                                local FoundValuexe = if v == Script.SavedDataGun[child.Name].SavedCooldown then true else false
+                                if FoundValuexe then
+                                    Script.SavedUpVauleInfo[child.Name] = i
+                                    break
+                                end
+                            end
+                            
+                        end
+                        
+                        debug.setupvalue(Func, Script.SavedUpVauleInfo[child.Name], Axis.Miscs.GunCooldown.DoubleBarrelSGRange)
+                    end
+                end
 
-
-
+                if Axis.Miscs.GunCooldown.TacticalShotgun and child.Name == '[TacticalShotgun]' then
+                    for i, rbxconnect in pairs(getconnections(child.Activated)) do
+                        local Func = rbxconnect.Function
+                        if not Script.SavedUpVauleInfo[child.Name] then
+                            for i,v in next, debug.getupvalues(Func) do
+                                local FoundValuexe = if v == Script.SavedDataGun[child.Name].SavedCooldown then true else false
+                                if FoundValuexe then
+                                    Script.SavedUpVauleInfo[child.Name] = i
+                                    break
+                                end
+                            end
+                            
+                        end
+                        
+                        debug.setupvalue(Func, Script.SavedUpVauleInfo[child.Name], Axis.Miscs.GunCooldown.TacticalShotgunRange)
+                    end
+                end
 
             end
         end)
@@ -354,7 +498,9 @@ end
         CharcterAdded(character)
     end)
     CharcterAdded(L_Player.Character)
-end]]--
+end
+
+
 
 
 function DrawFov(Thickness, NumSide, Radius, Color)
@@ -517,45 +663,30 @@ function OnPlayerRemove(p1 : Player)
 end
 
 
-function OnVisualsAdded(p1)
+function OnVisualsAdded(p1 : Player)
     if not Script.PlayersLibraryEsp[p1] then
 
-        local Highlight :Highlight = Instance.new('Highlight')
+        local Highlight: Highlight = Instance.new('Highlight')
         Highlight.Parent = nil
         Highlight.FillColor = Color3.fromRGB(4, 134, 221)
         Highlight.FillTransparency = 0.55
         Highlight.OutlineTransparency = 0.85
         Highlight.OutlineColor = Color3.fromRGB(13, 14, 14)
 
-
         Script.PlayersLibraryEsp[p1] = {
-
             Character = p1.Character,
             Highlight = Highlight,
-            --BodyEffects = p1.Character:WaitForChild('BodyEffects'),
             Esp = {
-
                 BoxOutline = DrawSquare(3.5, Color3.fromRGB(0, 0, 0)),
                 BoxInline = DrawSquare(0, Color3.fromRGB(0, 0, 0)),
                 Box = DrawSquare(2, Color3.fromRGB(255, 255, 255)),
-
-                --[[HealthBar = DrawLine(2, Color3.fromRGB(0, 0, 0)),
-                Health = DrawLine(1, Color3.fromRGB(27, 248, 38)),
-
-                ArmorBar = DrawLine(2, Color3.fromRGB(0, 0, 0)),
-                Armor = DrawLine(1, Color3.fromRGB(10, 149, 241)),]]--
-
                 Name = DrawText(19, Color3.fromRGB(255, 255, 255), 1)
             },
-
-            CharAdded=p1.CharacterAdded:Connect(function(char)
-
+            CharAdded = p1.CharacterAdded:Connect(function(char)
                 char:WaitForChild('HumanoidRootPart')
-                char:WaitForChild('Humanoid')
-                --char:WaitForChild('BodyEffects')
-
-                Script.PlayersLibraryEsp[p1].Character = char
-                --Script.PlayersLibraryEsp[p1].BodyEffects = char:WaitForChild('BodyEffects')
+                if Script.PlayersLibraryEsp[p1] then
+                    Script.PlayersLibraryEsp[p1].Character = char
+                end
 
 
             end)
@@ -565,20 +696,27 @@ end
 
 function OnVisualRemove(p1)
     local data = Script.PlayersLibraryEsp[p1]
-    if not data then
-        return
-    end
-    local Esp = data.Esp
+    Script.SavedSilentAimCharacters[p1] = nil
+
+    if not data then return end
 
     if data.CharAdded then
         data.CharAdded:Disconnect()
     end
 
-    data.Character = nil
-    
-    for i,v in next, Esp do
-        v:Remove()
+    if data.Highlight then
+        data.Highlight:Destroy()
     end
+
+    data.Character = nil
+
+    for _, v in pairs(data.Esp) do
+        if v and v.Remove then
+            v:Remove()
+        end
+    end
+
+    Script.PlayersLibraryEsp[p1] = nil
 end
 
 
@@ -601,21 +739,21 @@ function GetClosetTarget()
         if not hrp or not head then continue end
         local Direction = (hrp.Position - L_Player.Character.HumanoidRootPart.Position).Magnitude
 
+        if Direction > Axis.Combat.SilentAim.MaxDistance then
+            continue
+        end
+
         if Axis.Combat.SilentAim.DownCheck and IsPlayerDown(Player)  then
             continue
         end
-        if Axis.Combat.SilentAim.WallCheck and not WallCheck(head) then
-            continue
-        end
+
         if Axis.Combat.SilentAim.FriendCheck and IsFriendWith(L_Player, Player) then
             continue
         end
         if Axis.Miscs.WhiteListSettings.Enabled and Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[Player.Name] then
             continue
         end
-        if Direction > Axis.Combat.SilentAim.MaxDistance then
-            continue
-        end
+
 
         if Axis.Combat.SilentAim.NearestPart then
             for _, partName in ipairs(Axis.Combat.SilentAim.NearestPartWhitelist) do
@@ -640,18 +778,22 @@ function GetClosetTarget()
 
             local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
             local LastPositon = MouseLocation
+
             if Axis.Combat.SilentAim.TargetPriority == 'Closest to Center' then
                 LastPositon = Camera.ViewportSize / 2
             end
 
             local dist = (LastPositon - Vector2.new(pos.X, pos.Y)).Magnitude
-            if dist < ClosetPosition then
+            if dist < ClosetPosition  then
                 ClosetPosition = dist
                 Target = targetPart
                 PlayerTarget = Player
             end
         end
     end
+
+
+
 
     return Target, PlayerTarget
 end
@@ -740,6 +882,22 @@ RunService.RenderStepped:Connect(function(deltaTime)
                     Data.Highlight.Parent = Data.Character
                 end
 
+            end
+        end
+    else
+        for Player:Player, Data in next, Script.PlayersLibraryEsp do
+            if (Data.Character) then
+                Data.Esp.Name.Visible = false
+
+                Data.Esp.Box.Visible = false
+                Data.Esp.BoxOutline.Visible = false
+
+                Data.Esp.BoxInline.Visible = false
+                Data.Esp.BoxInline.Filled = false
+
+                if Data.Character:FindFirstChild('Highlight') then
+                    Data.Highlight.Parent = nil
+                end
             end
         end
     end
@@ -927,6 +1085,32 @@ GunHandler.GetAim = function(p17, ...)
     return oldGetAim(p17, ...)
 end
 
+local hookgame
+hookgame = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+    if not checkcaller() and method == 'FireServer' and self == MainRemoteEvent then
+        if args[1] == 'ShootGun' then
+            if Axis.Miscs.GunRange.Revolver or Axis.Miscs.GunRange.TacticalShotgun or Axis.Miscs.GunRange.DoubleBarrelSG then
+                local GetToolName = args[2]
+                local FullyName = GetToolName.Parent.Name
+                local PossibleRange = args[8]
+                if type(PossibleRange) == 'number' then
+                    if PossibleRange == Script.SavedDataGun[FullyName].SavedRange then
+                        args[8] = Script.SavedDataGun[FullyName].SavedRange
+                    end
+                end
+            end
+
+
+            return hookgame(self, unpack(args))
+        end
+    end
+
+    return hookgame(self, ...)
+end))
+
+
 
 local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
@@ -936,7 +1120,7 @@ local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
 Library.AccentColor = Color3.fromRGB(87, 240, 146);
 
 local Window = Library:CreateWindow({
-    Title = 'Axis.cc im cum inside noe pussy',
+    Title = 'Axis.gg',
     Center = true,
     AutoShow = true,
     TabPadding = 6,
@@ -1376,6 +1560,7 @@ SilentAimVisual:AddToggle('FilledEnabled', {
     end
 })
 
+
 SilentAimVisual:AddToggle('PulseFov', {
     Text = 'Pulse Enabled';
     Default = false;
@@ -1765,6 +1950,26 @@ RevolverCooldownDepBox:AddSlider('RevolverCooldownSlider', {
     Compact = true,
     Callback = function(Value)
         Axis.Miscs.GunCooldown.RevolverRange = Value
+        if L_Player.Character then
+            local Tool = L_Player.Character:FindFirstChild('[Revolver]')
+            if Tool then
+                for i, rbxconnect in pairs(getconnections(Tool.Activated)) do
+                    local Func = rbxconnect.Function
+                    if not Script.SavedUpVauleInfo[Tool.Name] then
+                        for i,v in next, debug.getupvalues(Func) do
+                            local FoundValuexe = if v == Axis.Miscs.GunCooldown.RevolverRange then true elseif v == Script.SavedDataGun[Tool.Name].SavedCooldown then true else false
+                            if FoundValuexe then
+                                Script.SavedUpVauleInfo[Tool.Name] = i
+                                break
+                            end
+                        end
+                        
+                    end
+
+                    debug.setupvalue(Func, Script.SavedUpVauleInfo[Tool.Name], Axis.Miscs.GunCooldown.RevolverRange)
+                end
+            end
+        end
     end
 });
 
@@ -1793,6 +1998,26 @@ DoubleBarrelCooldownSGDepbox:AddSlider('DoubleBarrelSGCooldownSlider', {
     Compact = true,
     Callback = function(Value)
         Axis.Miscs.GunCooldown.DoubleBarrelSGRange = Value
+        if L_Player.Character then
+            local Tool = L_Player.Character:FindFirstChild('[Double-Barrel SG]')
+            if Tool then
+                for i, rbxconnect in pairs(getconnections(Tool.Activated)) do
+                    local Func = rbxconnect.Function
+                    if not Script.SavedUpVauleInfo[Tool.Name] then
+                        for i,v in next, debug.getupvalues(Func) do
+                            local FoundValuexe = if v == Axis.Miscs.GunCooldown.DoubleBarrelSGRange then true elseif v == Script.SavedDataGun[Tool.Name].SavedCooldown then true else false
+                            if FoundValuexe then
+                                Script.SavedUpVauleInfo[Tool.Name] = i
+                                break
+                            end
+                        end
+                        
+                    end
+
+                    debug.setupvalue(Func, Script.SavedUpVauleInfo[Tool.Name], Axis.Miscs.GunCooldown.DoubleBarrelSGRange)
+                end
+            end
+        end
     end
 });
 
@@ -1809,6 +2034,7 @@ local TacticalShotgunCooldown = GunCooldown:AddToggle('TacticalShotgunCooldown',
     end
 })
 
+
 local TacticalShotgunCooldownDepBox = GunCooldown:AddDependencyBox()
 TacticalShotgunCooldownDepBox:AddSlider('TacticalShotgunCooldownSlider', {
     Text = 'Cooldown',
@@ -1819,6 +2045,26 @@ TacticalShotgunCooldownDepBox:AddSlider('TacticalShotgunCooldownSlider', {
     Compact = true,
     Callback = function(Value)
         Axis.Miscs.GunCooldown.TacticalShotgunRange = Value
+        if L_Player.Character then
+            local Tool = L_Player.Character:FindFirstChild('[TacticalShotgun]')
+            if Tool then
+                for i, rbxconnect in pairs(getconnections(Tool.Activated)) do
+                    local Func = rbxconnect.Function
+                    if not Script.SavedUpVauleInfo[Tool.Name] then
+                        for i,v in next, debug.getupvalues(Func) do
+                            local FoundValuexe = if v == Axis.Miscs.GunCooldown.TacticalShotgunRange then true elseif v == Script.SavedDataGun[Tool.Name].SavedCooldown then true else false
+                            if FoundValuexe then
+                                Script.SavedUpVauleInfo[Tool.Name] = i
+                                break
+                            end
+                        end
+                        
+                    end
+
+                    debug.setupvalue(Func, Script.SavedUpVauleInfo[Tool.Name], Axis.Miscs.GunCooldown.TacticalShotgunRange)
+                end
+            end
+        end
     end
 });
 
@@ -2178,6 +2424,10 @@ end
 
 Users.PlayerAdded:Connect(function(player)
     if player ~= L_Player then
+        repeat
+            task.wait(0.1)
+        until player.Character ~= nil
+        task.wait(0.15)
 
         OnPlayerAdded(player)
         OnVisualsAdded(player)
