@@ -1094,11 +1094,8 @@ hookgame = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
             if Axis.Miscs.GunRange.Revolver or Axis.Miscs.GunRange.TacticalShotgun or Axis.Miscs.GunRange.DoubleBarrelSG then
                 local GetToolName = args[2]
                 local FullyName = GetToolName.Parent.Name
-                local PossibleRange = args[8]
-                if type(PossibleRange) == 'number' then
-                    if PossibleRange == Script.SavedDataGun[FullyName].SavedRange then
-                        args[8] = Script.SavedDataGun[FullyName].SavedRange
-                    end
+                if type(args[8]) == 'number' then
+                    args[8] = Script.SavedDataGun[FullyName].SavedRange
                 end
             end
 
