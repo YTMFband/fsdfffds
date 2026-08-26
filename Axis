@@ -10,6 +10,7 @@ if not (game:GetService('ReplicatedStorage'):FindFirstChild('Modules') or game:G
 end
 
 
+local ContentProvider = game:GetService('ContentProvider')
 local GunHandler = require(game:GetService("ReplicatedStorage").Modules.GunHandler)
 local MainModule = require(game:GetService("ReplicatedStorage").MainModule)
 
@@ -296,6 +297,7 @@ local MousePos = Vector2.zero
 local LastArmorFire = 0
 local LastFoodFire = 0
 local AutoStompDebounce = false;
+local LastUpdateTick = 0;
 
 local Script = {
 
@@ -672,7 +674,6 @@ function OnVisualsAdded(p1 : Player)
         Highlight.FillTransparency = 0.55
         Highlight.OutlineTransparency = 0.85
         Highlight.OutlineColor = Color3.fromRGB(13, 14, 14)
-
         Script.PlayersLibraryEsp[p1] = {
             Character = p1.Character,
             Highlight = Highlight,
@@ -682,22 +683,22 @@ function OnVisualsAdded(p1 : Player)
                 Box = DrawSquare(2, Color3.fromRGB(255, 255, 255)),
                 Name = DrawText(19, Color3.fromRGB(255, 255, 255), 1)
             },
+
             CharAdded = p1.CharacterAdded:Connect(function(char)
                 char:WaitForChild('HumanoidRootPart')
+                char:WaitForChild('Humanoid')
+
                 if Script.PlayersLibraryEsp[p1] then
                     Script.PlayersLibraryEsp[p1].Character = char
                 end
 
-
-            end)
+            end),
         }
     end
 end
 
 function OnVisualRemove(p1)
     local data = Script.PlayersLibraryEsp[p1]
-    Script.SavedSilentAimCharacters[p1] = nil
-
     if not data then return end
 
     if data.CharAdded then
@@ -733,19 +734,10 @@ function GetClosetTarget()
         local Char = Player.Character
         if not Char then continue end
 
-        local hrp = Char:FindFirstChild("HumanoidRootPart")
-        local head = Char:FindFirstChild("Head")
+        local hrp = Char['HumanoidRootPart']
+        local head = Char['Head']
 
         if not hrp or not head then continue end
-        local Direction = (hrp.Position - L_Player.Character.HumanoidRootPart.Position).Magnitude
-
-        if Direction > Axis.Combat.SilentAim.MaxDistance then
-            continue
-        end
-
-        if Axis.Combat.SilentAim.DownCheck and IsPlayerDown(Player)  then
-            continue
-        end
 
         if Axis.Combat.SilentAim.FriendCheck and IsFriendWith(L_Player, Player) then
             continue
@@ -757,7 +749,7 @@ function GetClosetTarget()
 
         if Axis.Combat.SilentAim.NearestPart then
             for _, partName in ipairs(Axis.Combat.SilentAim.NearestPartWhitelist) do
-                local part = Char:FindFirstChild(partName)
+                local part = Char[partName]
                 if not part then continue end
 
                 local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
@@ -765,6 +757,17 @@ function GetClosetTarget()
 
                 local dist = (MouseLocation - Vector2.new(pos.X, pos.Y)).Magnitude
                 if dist < ClosetPosition then
+                    local Direction = (hrp.Position - L_Player.Character.HumanoidRootPart.Position).Magnitude
+                    if Axis.Combat.SilentAim.WallCheck and not WallCheck(head) then
+                    continue
+                    end
+                    if Axis.Combat.SilentAim.DownCheck and IsPlayerDown(Player)  then
+                    continue
+                    end
+                    if Direction > Axis.Combat.SilentAim.MaxDistance then
+                    continue
+                    end
+                    
                     ClosetPosition = dist
                     Target = part
                     PlayerTarget = Player
@@ -772,7 +775,7 @@ function GetClosetTarget()
             end
         else
             local targetPartName = Axis.Combat.SilentAim.TargetPart
-            local targetPart = Char:FindFirstChild(targetPartName)
+            local targetPart = Char[targetPartName]
             if not targetPart then continue end
 
 
@@ -785,6 +788,20 @@ function GetClosetTarget()
 
             local dist = (LastPositon - Vector2.new(pos.X, pos.Y)).Magnitude
             if dist < ClosetPosition  then
+                local Direction = (hrp.Position - L_Player.Character.HumanoidRootPart.Position).Magnitude
+
+                if Axis.Combat.SilentAim.WallCheck and not WallCheck(head) then
+                continue
+                end
+
+                if Axis.Combat.SilentAim.DownCheck and IsPlayerDown(Player)  then
+                continue
+                end
+                if Direction > Axis.Combat.SilentAim.MaxDistance then
+                continue
+                end
+
+
                 ClosetPosition = dist
                 Target = targetPart
                 PlayerTarget = Player
@@ -945,36 +962,36 @@ RunService.RenderStepped:Connect(function(deltaTime)
 end)
 
 
-
-
 RunService.Heartbeat:Connect(function(deltaTime)
-
-    if ( Axis.Combat.SilentAim.Enabled and Axis.Combat.SilentAim.SelectPriority == 'Free For All')  then
-        local part, plr = GetClosetTarget()
-        Script.TargetSettings.Part = part
-    elseif (Axis.Combat.SilentAim.Enabled and Script.TargetSettings.Player and Axis.Combat.SilentAim.SelectPriority == 'Toggled') then
-        if Script.TargetSettings.Player.Parent == Users then
-            local HookCharacter = Script.TargetSettings.Player.character
-            local HookPart
-            if (HookCharacter and HookCharacter:FindFirstChild('HumanoidRootPart')) then
-                if Axis.Combat.SilentAim.NearestPart then
-                else
-                    local GetPartName = Axis.Combat.SilentAim.TargetPart
-                    local PartName = HookCharacter:FindFirstChild(GetPartName)
-                    if PartName then
-                        HookPart = PartName
+    if tick() - LastUpdateTick > 0.04 then
+        if ( Axis.Combat.SilentAim.Enabled and Axis.Combat.SilentAim.SelectPriority == 'Free For All')  then
+            local part, plr = GetClosetTarget()
+            Script.TargetSettings.Part = part
+        elseif (Axis.Combat.SilentAim.Enabled and Script.TargetSettings.Player and Axis.Combat.SilentAim.SelectPriority == 'Toggled') then
+            if Script.TargetSettings.Player.Parent == Users then
+                local HookCharacter = Script.TargetSettings.Player.character
+                local HookPart
+                if (HookCharacter and HookCharacter:FindFirstChild('HumanoidRootPart')) then
+                    if Axis.Combat.SilentAim.NearestPart then
+                    else
+                        local GetPartName = Axis.Combat.SilentAim.TargetPart
+                        local PartName = HookCharacter:FindFirstChild(GetPartName)
+                        if PartName then
+                            HookPart = PartName
+                        end
                     end
-                end
 
-                Script.TargetSettings.Part = HookPart
+                    Script.TargetSettings.Part = HookPart
+                end
             end
+        elseif (Axis.Combat.SilentAim.Enabled == false and Script.TargetSettings.Player or  Script.TargetSettings.Part) then
+            Script.TargetSettings.Player = nil
+            Script.TargetSettings.Part = nil
         end
-    elseif (Axis.Combat.SilentAim.Enabled == false and Script.TargetSettings.Player or  Script.TargetSettings.Part) then
-        Script.TargetSettings.Player = nil
-        Script.TargetSettings.Part = nil
+        LastUpdateTick = tick()
     end
 
-    
+
     if (Axis.Miscs.LegitUtility.AutoBuyArmor) then
         if tick() - LastArmorFire >= Axis.Miscs.LegitUtility.AutoBuyCooldown then
             for index, item in next, Script.ShopItems do
@@ -2419,12 +2436,12 @@ for index, value in pairs(Users:GetPlayers()) do
     end
 end
 
+
 Users.PlayerAdded:Connect(function(player)
     if player ~= L_Player then
         repeat
             task.wait(0.1)
         until player.Character ~= nil
-        task.wait(0.15)
 
         OnPlayerAdded(player)
         OnVisualsAdded(player)
