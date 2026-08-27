@@ -195,6 +195,11 @@ local Axis = {
             TacticalShotgunRange = 0.3,
         },
 
+        GunSpread = {
+            Enabled = false,
+            Spread = 0.05,
+        },
+
         WhiteListSettings = {
             Enabled = false;
             AutoWhiteListOnJoin = false;
@@ -205,6 +210,9 @@ local Axis = {
             Enabled = false;
             Keybind = 'Fn',
             AutoShoot = false;
+            Cooldown = 0,
+            ShootTime = 1,
+            AmmoCheck = false;
             GunList = {},
         },
     };
@@ -298,6 +306,7 @@ local LastArmorFire = 0
 local LastFoodFire = 0
 local AutoStompDebounce = false;
 local LastUpdateTick = 0;
+local DebounceGunMacro = false;
 
 local Script = {
 
@@ -344,6 +353,7 @@ local Script = {
     };
     SavedDataGun = {},
     SavedUpVauleInfo = {},
+    SavedHookRandom = {},
 }
 
 
@@ -377,6 +387,34 @@ do
                     
                     Script.SavedDataGun[child.Name] = data
                 end
+
+                if not Script.SavedHookRandom[child.Name] then
+                    for i, rbxconnect in pairs(getconnections(child.Activated)) do
+                        local Func = rbxconnect.Function
+                        local env = getfenv(Func)
+                        local mathoriginal = env.math.random
+
+                        Script.SavedHookRandom[child.Name] = mathoriginal
+                    end
+                end
+
+                for i, rbxconnect in pairs(getconnections(child.Activated)) do
+                    local Func = rbxconnect.Function
+                    local env = getfenv(Func)
+                    local OriginalHook = Script.SavedHookRandom[child.Name]
+                    setreadonly(env.math, false)
+                    env.math.random = function(...)
+                        local Math 
+                        if Axis.Miscs.GunSpread.Enabled then
+                            Math = (OriginalHook(...) * Axis.Miscs.GunSpread.Spread) / 0.05
+                        else
+                            Math = OriginalHook(...)
+                        end
+                        return Math
+                    end
+                    setreadonly(env.math, true)
+                end
+
 
                 if Axis.Miscs.GunRange.Revolver and child.Name == '[Revolver]' then
                     for i, rbxconnect in pairs(getconnections(child.Activated)) do
@@ -451,7 +489,6 @@ do
                             end
                             
                         end
-                        print('Huh')
                         debug.setupvalue(Func, Script.SavedUpVauleInfo[child.Name], Axis.Miscs.GunCooldown.RevolverRange)
                     end
                 end
@@ -687,11 +724,10 @@ function OnVisualsAdded(p1 : Player)
             CharAdded = p1.CharacterAdded:Connect(function(char)
                 char:WaitForChild('HumanoidRootPart')
                 char:WaitForChild('Humanoid')
-
+                task.wait()
                 if Script.PlayersLibraryEsp[p1] then
                     Script.PlayersLibraryEsp[p1].Character = char
                 end
-
             end),
         }
     end
@@ -734,10 +770,15 @@ function GetClosetTarget()
         local Char = Player.Character
         if not Char then continue end
 
+        if not Char:FindFirstChild('HumanoidRootPart') then
+            continue
+        end
+        if not Char:FindFirstChild('Head') then
+            continue
+        end
+
         local hrp = Char['HumanoidRootPart']
         local head = Char['Head']
-
-        if not hrp or not head then continue end
 
         if Axis.Combat.SilentAim.FriendCheck and IsFriendWith(L_Player, Player) then
             continue
@@ -780,6 +821,9 @@ function GetClosetTarget()
 
 
             local pos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+            if not onScreen then
+                continue
+            end
             local LastPositon = MouseLocation
 
             if Axis.Combat.SilentAim.TargetPriority == 'Closest to Center' then
@@ -843,7 +887,15 @@ RunService.RenderStepped:Connect(function(deltaTime)
     if (Axis.Visual.Esp.Enabled) then
         for Player:Player, Data in next, Script.PlayersLibraryEsp do
             if (Data.Character) then
- 
+                
+                if not Data.Character.Parent == workspace.Players then
+                    continue
+                end
+
+                if not Data.Character:FindFirstChild('HumanoidRootPart') then
+                continue
+                end
+                if not Data.Character:FindFirstChild('Humanoid') then continue end
                 local Humanoid = Data.Character.Humanoid
                 local HrpPos, OnScree = Camera:WorldToViewportPoint(Data.Character.HumanoidRootPart.Position)
 
@@ -853,6 +905,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
                 local xPos, yPos = math.floor(x - Wigth * 0.5), math.floor((y - Heigth * 0.5) + ( 0.5 * Scale))
 
                 local NewTextScale = math.clamp(1 / (HrpPos.Z * math.tan(math.rad(Camera.FieldOfView * 0.5)) * 2) * 1000, 15, 19)
+
 
                 Data.Esp.Box.Position = Vector2.new(xPos,yPos)
                 Data.Esp.Box.Size = Vector2.new(Wigth, Heigth)
@@ -880,24 +933,53 @@ RunService.RenderStepped:Connect(function(deltaTime)
                 Data.Esp.Name.Position = Vector2.new(x, (yPos + Heigth))
                 Data.Esp.Name.Size = NewTextScale
 
+                if Axis.Miscs.WhiteListSettings.Enabled then
+                    if Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[Player.Name] == true  then
+                        Data.Esp.Name.Visible = false
+
+                        Data.Esp.Box.Visible = false
+                        Data.Esp.BoxOutline.Visible = false
+
+                        Data.Esp.BoxInline.Visible = false
+                        Data.Esp.BoxInline.Filled = false
+                        if Data.Character:FindFirstChild('Highlight') then
+                            Data.Highlight.Parent = nil
+                        end
+                    else
+                        Data.Esp.Name.Visible = (OnScree and Axis.Visual.Esp.Name) or false
+
+                        Data.Esp.Box.Visible = (OnScree and Axis.Visual.Esp.Box) or false
+                        Data.Esp.BoxOutline.Visible = (OnScree and Axis.Visual.Esp.Box) or false
+
+                        Data.Esp.BoxInline.Visible = (OnScree and Axis.Visual.Esp.BoxFilled) or false
+                        Data.Esp.BoxInline.Filled = (OnScree and Axis.Visual.Esp.BoxFilled) or false
+                        Data.Esp.BoxInline.Transparency = 0.15
+                        if (Axis.Visual.Esp.Highlight and not Data.Character:FindFirstChild('Highlight'))  then
+                            Data.Highlight.Parent = Data.Character
+                        end
+                    end
+
+                else
+                    Data.Esp.Name.Visible = (OnScree and Axis.Visual.Esp.Name) or false
+
+                    Data.Esp.Box.Visible = (OnScree and Axis.Visual.Esp.Box) or false
+                    Data.Esp.BoxOutline.Visible = (OnScree and Axis.Visual.Esp.Box) or false
+
+                    Data.Esp.BoxInline.Visible = (OnScree and Axis.Visual.Esp.BoxFilled) or false
+                    Data.Esp.BoxInline.Filled = (OnScree and Axis.Visual.Esp.BoxFilled) or false
+                    if (Axis.Visual.Esp.Highlight and not Data.Character:FindFirstChild('Highlight'))  then
+                        Data.Highlight.Parent = Data.Character
+                    end
+                end
+
                 --Data.Esp.HealthBar.Visible = (OnScree and Axis.Visual.Esp.Health) or false
                 --Data.Esp.Health.Visible = (OnScree and Axis.Visual.Esp.Health) or false
 
-                Data.Esp.Name.Visible = (OnScree and Axis.Visual.Esp.Name) or false
-
-                Data.Esp.Box.Visible = (OnScree and Axis.Visual.Esp.Box) or false
-                Data.Esp.BoxOutline.Visible = (OnScree and Axis.Visual.Esp.Box) or false
 
                 --Data.Esp.ArmorBar.Visible = (OnScree and Axis.Visual.Esp.Armor) or false
                 --Data.Esp.Armor.Visible = (OnScree and Axis.Visual.Esp.Armor) or false
 
 
-                Data.Esp.BoxInline.Visible = (OnScree and Axis.Visual.Esp.BoxFilled) or false
-                Data.Esp.BoxInline.Filled = (OnScree and Axis.Visual.Esp.BoxFilled) or false
-                Data.Esp.BoxInline.Transparency = 0.15
-                if (Axis.Visual.Esp.Highlight and not Data.Character:FindFirstChild('Highlight'))  then
-                    Data.Highlight.Parent = Data.Character
-                end
 
             end
         end
@@ -938,8 +1020,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
         end
     end
 
-
-    
     if (Axis.Combat.SilentAim.Visual.Trace.Enabled) then
         if Script.TargetSettings.Part then
             local pos, onScreen = Camera:WorldToViewportPoint(Script.TargetSettings.Part.Position)
@@ -958,7 +1038,6 @@ RunService.RenderStepped:Connect(function(deltaTime)
             data.Visible = false
         end
     end
-
 end)
 
 
@@ -1055,7 +1134,6 @@ RunService.Heartbeat:Connect(function(deltaTime)
         end
     end
 
-
     if (Axis.Miscs.LegitUtility.AutoEat and L_Player.Character ~= nil) then
         local Tool = L_Player.Character:FindFirstChildWhichIsA('Tool')
         local CanEat = if Tool ~= nil then if Tool.Name == '[Chicken]' or Tool.Name == '[Cranberry]' or Tool.Name == '[Hamburger]' or Tool.Name == '[Pizza]'or Tool.Name == '[Stim]'or Tool.Name == '[Taco]' then true else false else false
@@ -1063,6 +1141,42 @@ RunService.Heartbeat:Connect(function(deltaTime)
             Tool:Activate()
         end
     end
+
+    if Axis.Visual.Lighting.Fog then
+        Lighting.FogStart = Axis.Visual.Lighting.FogStart
+        Lighting.FogEnd = Axis.Visual.Lighting.FogEnd
+        Lighting.FogColor = Axis.Visual.Lighting.FogColor
+    end
+    
+    if Axis.Visual.Lighting.Ambiend then
+        Lighting.Ambient = Axis.Visual.Lighting.AmbiendColor
+    end
+
+    if Axis.Visual.Lighting.OutDoorAmbiend then
+        Lighting.OutdoorAmbient = Axis.Visual.Lighting.OutDoorAmbiendColor
+    end
+
+    if Axis.Visual.Lighting.ColorShift_Bottom then
+        Lighting.ColorShift_Bottom = Axis.Visual.Lighting.ColorShift_BottomColor
+    end
+
+    if Axis.Visual.Lighting.ColorShift_Top then
+        Lighting.ColorShift_Top = Axis.Visual.Lighting.ColorShift_TopColor
+    end
+
+    if Axis.Visual.Lighting.Shadow then
+        Lighting.ShadowColor = Axis.Visual.Lighting.ShadowColor
+        Lighting.ShadowSoftness = Axis.Visual.Lighting.ShadowSlider
+    end
+
+    if Axis.Visual.Lighting.Brightness then
+        Lighting.Brightness = Axis.Visual.Lighting.BrightnessVl3
+    end
+
+    Lighting.LightingStyle = Enum.LightingStyle[tostring(Axis.Visual.Lighting.LightingStyle)]
+    Lighting.Technology = Enum.Technology[tostring(Axis.Visual.Lighting.Technology)]
+
+
 end)
 
 
@@ -1160,9 +1274,11 @@ local CameraTab = Tabs.Combat:AddRightGroupbox('Camera')
 local LegitUtility = Tabs.Miscs:AddLeftGroupbox('Legit Utility');
 local GunRange = Tabs.Miscs:AddLeftGroupbox('Gun Range Utility');
 local GunCooldown = Tabs.Miscs:AddLeftGroupbox('Gun Cooldown Utility');
+local GunSpread = Tabs.Miscs:AddLeftGroupbox('Gun Spread Utility');
 
-local whitelisttab = Tabs.Miscs:AddLeftGroupbox('Whitelist');
-local GunMacro = Tabs.Miscs:AddLeftGroupbox('GunMacro');
+
+local whitelisttab = Tabs.Miscs:AddRightGroupbox('Whitelist');
+local GunMacro = Tabs.Miscs:AddRightGroupbox('GunMacro');
 
 
 local Esp = Tabs.Visuals:AddLeftGroupbox('Esp');
@@ -1346,6 +1462,7 @@ SilentAimTab:AddSlider('FovRadius', {
         Script.Drawing.SilentAimLibrary.Big.Radius = Value
         Script.Drawing.SilentAimLibrary.Normal.Radius = Value
         Script.Drawing.SilentAimLibrary.Filled.Radius = Value
+        Axis.Combat.SilentAim.FovRadius = Value
     end
 });
 
@@ -1510,7 +1627,7 @@ CameraTab:AddSlider('MaxDistanceCamera', {
 });
 
 
---[[whitelisttab:AddToggle('WLEnabled', {
+whitelisttab:AddToggle('WLEnabled', {
     Text = 'Enabled';
     Default = false;
 
@@ -1528,6 +1645,33 @@ whitelisttab:AddToggle('AutoOnPlayerJoin', {
     end
 });
 
+local WlEveryone = whitelisttab:AddButton({
+    Text = 'WhilteList Everyone',
+    Func = function()
+        for i=1, #Script.ListPlayersWhitelist do
+            Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[Script.ListPlayersWhitelist[i]] = true
+        end
+
+        Options.PlayerList:SetValue(Axis.Miscs.WhiteListSettings.PlayersOnWhiteList)
+    end,
+    DoubleClick = false,
+    Tooltip = ''
+})
+
+local UnWlEveryone = whitelisttab:AddButton({
+    Text = 'UnWhilteList Everyone',
+    Func = function()
+        for i=1, #Script.ListPlayersWhitelist do
+            Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[Script.ListPlayersWhitelist[i]] = nil
+        end
+
+        Options.PlayerList:SetValue(Axis.Miscs.WhiteListSettings.PlayersOnWhiteList)
+    end,
+    DoubleClick = false,
+    Tooltip = ''
+})
+
+
 whitelisttab:AddDropdown('PlayerList', {
     Values = { },
     Default = {},
@@ -1542,7 +1686,7 @@ whitelisttab:AddDropdown('PlayerList', {
             Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[index] = value
         end
     end
-});]]--
+});
 
 
 SilentAimVisual:AddLabel('Fov Color'):AddColorPicker('FovColor', {
@@ -1734,8 +1878,7 @@ SilentAimVisual:AddSlider('FilledTransparency', {
     end
 });
 
-
---[[GunMacro:AddToggle('GunMacroEnabled', {
+GunMacro:AddToggle('GunMacroEnabled', {
     Text = 'Enabled';
     Default = false;
 
@@ -1763,19 +1906,65 @@ SilentAimVisual:AddSlider('FilledTransparency', {
 });
 
 GunMacro:AddToggle('AutoShootEnabled', {
-    Text = 'AutoShoot';
+    Text = 'Auto Shoot';
     Default = false;
 
     Callback = function(vf)
         Axis.Miscs.GunMacro.AutoShoot = vf
     end
-});]]--
+});
 
+GunMacro:AddToggle('AmmocheckEnabled', {
+    Text = 'Ammo Check';
+    Default = false;
+
+    Callback = function(vf)
+        Axis.Miscs.GunMacro.AmmoCheck = vf
+    end
+});
+
+--[[StarterGuiGunMacro:AddSlider('GunMacroTimeShoot', {
+    Text = 'Time Shoot',
+    Default = Axis.Miscs.GunMacro.ShootTime,
+    Min = 1,
+    Max = 3,
+    Rounding = 0,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Miscs.GunMacro.ShootTime = Value
+    end
+})]]--
+
+GunMacro:AddSlider('GunMacroCooldown', {
+    Text = 'Cooldown',
+    Default = Axis.Miscs.GunMacro.Cooldown,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Compact = false,
+
+    Callback = function(Value)
+        Axis.Miscs.GunMacro.Cooldown = Value
+    end
+});
+
+GunMacro:AddDropdown('GunMacroGuns', {
+    Values = { '[Double-Barrel SG]', '[TacticalShotgun]' },
+    Default = 0,
+    Multi = true,
+    Text = 'Gun To Shoot',
+
+    Callback = function(Value)
+        for i,v in next, Value do
+            Axis.Miscs.GunMacro.GunList[i] = true
+        end
+    end
+});
 
 
 SilentAimUtility:AddDropdown('SilentAimMethod', {
-
-    Values = { 'ReWrite Module', 'RaycastManipulation' },
+    Values = { 'ReWrite Module', 'Raycast Manipulation' },
     Default = 1,
     Multi = false,
     Text = 'Method Target',
@@ -2088,6 +2277,37 @@ TacticalShotgunCooldownDepBox:SetupDependencies({
 
 
 
+
+
+
+local SpreadEnabled = GunSpread:AddToggle('SpreadEnabled', {
+    Text = 'Enabled';
+    Default = Axis.Miscs.GunSpread.Enabled,
+
+    Callback = function(vf)
+        Axis.Miscs.GunSpread.Enabled = vf
+    end
+})
+
+local DoubleBarrelSpreadDepbox = GunSpread:AddDependencyBox()
+DoubleBarrelSpreadDepbox:AddSlider('OffsetsMultilayer', {
+    Text = 'Offsets Multilayer',
+    Default = Axis.Miscs.GunSpread.Spread,
+    Min = 0.01,
+    Max = 0.1,
+    Rounding = 3,
+    Compact = true,
+    Callback = function(Value)
+        Axis.Miscs.GunSpread.Spread = Value
+    end
+});
+
+DoubleBarrelSpreadDepbox:SetupDependencies({
+    { SpreadEnabled, true } 
+})
+
+
+
 Lighting:AddToggle('Ambiend', {
     Text = 'Ambiend';
     Default = Axis.Visual.Lighting.Ambiend;
@@ -2147,7 +2367,7 @@ Lighting:AddToggle('ColorShift_Top', {
     Default = Axis.Visual.Lighting.ColorShift_Top;
 
     Callback = function(vf)
-
+        Axis.Visual.Lighting.ColorShift_Top = vf
     end
 }):AddColorPicker('ColorShift_TopColor', {
     Default = Axis.Visual.Lighting.ColorShift_TopColor,
@@ -2450,14 +2670,14 @@ Users.PlayerAdded:Connect(function(player)
         if not table.find(Script.ListPlayersWhitelist, player.Name) then
             table.insert(Script.ListPlayersWhitelist, player.Name)
         end
-        --Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
+        Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
 
         if Axis.Miscs.WhiteListSettings.AutoWhiteListOnJoin and not Script.LastLoggedPlayer[player.UserId] == true then
             if not Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[player.Name] then
                 Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[player.Name] = true
             end
 
-            --Options.PlayerList:SetValue(Axis.Miscs.WhiteListSettings.PlayersOnWhiteList)
+            Options.PlayerList:SetValue(Axis.Miscs.WhiteListSettings.PlayersOnWhiteList)
         end
     end
 end)
@@ -2473,16 +2693,16 @@ Users.PlayerRemoving:Connect(function(player)
         if table.find(Script.ListPlayersWhitelist, player.Name) then
             table.remove(Script.ListPlayersWhitelist, table.find(Script.ListPlayersWhitelist, player.Name))
         end
-        --Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
+        Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
         if Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[player.Name] then
             Axis.Miscs.WhiteListSettings.PlayersOnWhiteList[player.Name] = nil
         end
-        --Options.PlayerList:SetValue(Axis.Miscs.WhiteListSettings.PlayersOnWhiteList)
+        Options.PlayerList:SetValue(Axis.Miscs.WhiteListSettings.PlayersOnWhiteList)
 
     end
 end)
 
---Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
+Options.PlayerList:SetValues(Script.ListPlayersWhitelist)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if NewKeybindCooldown then return end
@@ -2495,9 +2715,35 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
                 Script.TargetSettings.Player = Player
             end
         end
+    elseif input.KeyCode == Axis.Miscs.GunMacro.Keybind and Axis.Miscs.GunMacro.Enabled and DebounceGunMacro == false  then
+        local L_Character : Model = L_Player.Character 
+        if not L_Character then
+            return
+        end
+
+        L_Character['Humanoid']:UnequipTools() 
+        DebounceGunMacro = true
+        for Gun, Boolean in next, Axis.Miscs.GunMacro.GunList do
+            local FindGun:Tool = L_Character:FindFirstChild(Gun) or L_Player.Backpack:FindFirstChild(Gun)
+
+            if Axis.Miscs.GunMacro.AmmoCheck then
+                if FindGun:FindFirstChild('Ammo').Value == 0 then
+                continue
+                end
+            end
+
+            if FindGun.Parent == L_Player.Backpack then
+                FindGun.Parent = L_Character
+                if Axis.Miscs.GunMacro.AutoShoot then
+                    FindGun:Activate()
+                end
+                task.wait(Axis.Miscs.GunMacro.Cooldown)
+                FindGun.Parent = L_Player.Backpack
+            end
+        end
+
+        DebounceGunMacro = false
     end
-
-
 end)
 
 
