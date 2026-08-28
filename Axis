@@ -1950,7 +1950,7 @@ GunMacro:AddSlider('GunMacroCooldown', {
 });
 
 GunMacro:AddDropdown('GunMacroGuns', {
-    Values = { '[Double-Barrel SG]', '[TacticalShotgun]' },
+    Values = { '[Double-Barrel SG]', '[TacticalShotgun]', '[Revolver]' },
     Default = 0,
     Multi = true,
     Text = 'Gun To Shoot',
